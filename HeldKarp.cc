@@ -25,18 +25,40 @@
 
 
 
+#include <math.h>
+#include "HeldKarp.cuh"
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <cmath>
-#include <assert.h>
 
-#include <cuda.h>
 
-#include "CudaGillespie.cuh"
-#include "ta_utilities.hpp"
+/**---------------------------------------------------------------------------+
+|                                                                             |
+|                                    MACROS                                   |
+|                                                                             |
++----------------------------------------------------------------------------*/
 
+
+/*
+NOTE: You can use this macro to easily check cuda error codes
+and get more information.
+
+Modified from:
+http://stackoverflow.com/questions/14038589/
+what-is-the-canonical-way-to-check-for-errors-using-the-cuda-runtime-api
+*/
+#define gpuErrChk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(
+    cudaError_t code,
+    const char *file,
+    int line,
+    bool abort=true)
+{
+    if (code != cudaSuccess) {
+        fprintf(stderr,"GPUassert: %s %s %d\n",
+            cudaGetErrorString(code), file, line);
+        exit(code);
+    }
+}
 
 
 
@@ -65,11 +87,11 @@
 +----------------------------------------------------------------------------*/
 
 //Constructors
-Point2D::Point2D() : x(0.0) y(0.0) {
-    memset(name, 0, NAME_LEN * sizeof(char)
+Point2D::Point2D() : x(0.0), y(0.0) {
+    memset(name, 0, NAME_LEN * sizeof(char));
 }
 Point2D::Point2D(float x0, float y0) : x(x0), y(y0) {
-    memset(name, 0, NAME_LEN * sizeof(char)
+    memset(name, 0, NAME_LEN * sizeof(char));
 }
 
 // Destructor
@@ -77,7 +99,8 @@ Point2D::~Point2D() {}
 
 // Returns the Cartesian distance between two points
 float Point2D::distanceTo(Point2D point) {
-    float dx = x - point.x, dy = y - point.y;
+    double dx = x - point.x;
+    double dy = y - point.y;
     return sqrt(dx * dx + dy * dy);
 }
 
@@ -98,16 +121,18 @@ bool Set::operator ==(const Set& otherSet) {
     if (nValues != otherSet.nValues)
         return false;
     // Otherwise, check that they have the same values
-    otherSet.sort();
+    Set *otherSetCopy = new Set(NULL, 0);
+    memcpy(otherSetCopy, &otherSet, sizeof(Set));
+    otherSetCopy->sort();
     for (int i = 0; i < nValues; i++)
-        if (values[i] != otherSet.values[i])
+        if (values[i] != otherSetCopy->values[i])
             return false;
     // All values were equal
     return true;
 }
 
 // Subtracts a value from the set
-Set Set::operator -(int toSub) {
+Set Set::operator -(const int& toSub) {
     // Create new array of values for new set
     int *newValues = (int *) malloc((nValues - 1) * sizeof(int));
     int index = 0;
@@ -137,6 +162,23 @@ void Set::sort() {
 }
 
 
+/**---------------------------------------------------------------------------+
+|                                                                             |
+|                           HELDKARP MEMO ROW CLASS                           |
+|                                                                             |
++----------------------------------------------------------------------------*/
+
+HeldKarpMemoRow::HeldKarpMemoRow(Set set, HeldKarpMemo *initRow) : \
+    subset(set), row(initRow) {}
+
+HeldKarpMemoRow::~HeldKarpMemoRow() {}
+
+void HeldKarpMemoRow::updateRow(int col, float dist, int prev) {
+    row[col].dist = dist;
+    row[col].prev = prev;
+}
+
+
 
 /**---------------------------------------------------------------------------+
 |                                                                             |
@@ -161,7 +203,7 @@ void checkCUDAKernelError()
  *            be 0
  *      size - the number of points in the whole TSP algorithm
  */
-int getSetIndex(Set *set, int size) {
+int getSetIndex(Set set, int size) {
     /*!
      * Unfortunately it is hard to explain how this arithmetic works.
      * Basically, we know that in a set S with |S| = n, there are 2^n
@@ -176,7 +218,7 @@ int getSetIndex(Set *set, int size) {
      */
      
     // Sort the list so we can find its index.
-    set->sort();
+    set.sort();
     
     // We will continually add to the returned index
     int memoIndex = 0;
@@ -184,7 +226,7 @@ int getSetIndex(Set *set, int size) {
     // Remember the lowest value we havent seen.  We start at 1 because the
     //    smallest subset that makes sense in this problem has two elements.
     //    Thus, every set must have at least one value 1 or greater.
-    lowest = 1;
+    int lowest = 1;
     
     // This is the index in the set we are currently iterating over.  We start
     //    at 1 because the first element will always be the same (because we
@@ -193,15 +235,15 @@ int getSetIndex(Set *set, int size) {
     
     while (1) {
         // Add in values for every subset of this subset we skip over
-        for (; lowest < set->values[setIndex]; lowest++)
-            memoIndex += pow(2, size - i - 1);
+        for (; lowest < set.values[setIndex]; lowest++)
+            memoIndex += pow(2, size - lowest - 1);
         
         // Increment the lowest value so that we don't double-check it.
         lowest++;
         setIndex++;
         
         // Break if we have seen every index
-        if (set->nValues == setIndex)
+        if (set.nValues == setIndex)
             return memoIndex;
             
         // Increment the memo index because of a zero case that occurs if the
@@ -230,17 +272,29 @@ int main(int argc, char *argv[]) {
     
     /********************************Read Points******************************/
     
-
+#if 0
+    // Actual code
     FILE *dataFile = fopen(argv[1],"r");
     if (dataFile == NULL){
         fprintf(stderr, "Datapoints file missing\n");
         exit(EXIT_FAILURE);
     }
-    
     // Counts how many points are processed
     int numPoints = 0;
     // Array of all points in list
     Point2D *allPoints = NULL;
+
+#else
+    // Can use this for debugging when we don't have files
+    int numPoints = 5;
+    Point2D allPoints[5] = { Point2D(0.0, 0.0), Point2D(1.0, 1.0), Point2D(2.0, 2.0), Point2D(3.0, 3.0), Point2D(4.0, 4.0) };
+#endif
+
+
+
+
+
+
     
     /* FOR line IN dataFile:
      *      Point2D nextPoint(line[1], line[2])
@@ -266,12 +320,12 @@ int main(int argc, char *argv[]) {
     //     initialize it to zero
     float **allDistances = (float **) malloc(numPoints * sizeof(float *));
     for (int i = 0; i < numPoints; i++)
-        allDistances[i] = (float *) calloc(numPoints, sizeof(float));
-    
+        allDistances[i] = (float *) malloc(numPoints * sizeof(float));
+
     // Find the distance between each set of two points.  For this, only find
     //     the upper triangle, and copy to the lower triangle
     for (int i = 0; i < numPoints; i++) {
-        for (int j = numPoints - 1; j != i; j++) {
+        for (int j = numPoints - 1; j != i; j--) {
             // Get distance between point i and point j
             allDistances[i][j] = allPoints[i].distanceTo(allPoints[j]);
             // Distance is same in either direction
@@ -290,15 +344,16 @@ int main(int argc, char *argv[]) {
     int numSubsets = pow(2, numPoints - 1) - 1;
     HeldKarpMemoRow *memoArray = (HeldKarpMemoRow *) malloc(numSubsets * sizeof(HeldKarpMemoRow));
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
+    for (int i = 0; i < numSubsets; i++)
+        memoArray[i].row = (HeldKarpMemo *) malloc(numPoints * sizeof(HeldKarpMemo));
     
     
     // Initialize by setting all sets {0, n} to the distance from 1 to n.
     for (int i = 1; i < numPoints; i++) {
-        int set[2] = {0, i};
-        int index = getSetIndex(Set(set, 2), numPoints);
+        int setIndices[2] = {0, i};
+        int index = getSetIndex(Set(setIndices, 2), numPoints);
         memoArray[index].updateRow(i, allDistances[0][i], 0);
     }
-    
     
     // Continue with rest of algorithm.
     for (int i = 3; i < numPoints; i++) {
@@ -316,11 +371,18 @@ int main(int argc, char *argv[]) {
          *          memoArray[getSetIndex(S)].row[k].prev = minValPrev;
          *  Trace from dest to source using prev values
          */
+    }
+     
+    // Free all allocated memory
+    for (int i = 0; i < numPoints; i++) {
+         delete allDistances[i];
+    }
+    delete allDistances;
+    delete memoArray;
+ 
     
-    
-    
-    STOP_TIMER(&cpu_ms);
-    printf("CPU runtime: %.3f\n", cpu_ms / 1000);
+    STOP_RECORD_TIMER(cpu_ms);
+    printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
     
     
     
@@ -330,9 +392,10 @@ int main(int argc, char *argv[]) {
     START_TIMER();
     
     
-    STOP_TIMER(&gpu_ms);
-    printf("GPU runtime: %.3f\n", gpu_ms / 1000);
-    printf("GPU speedup: %d%\n", (int) (gpu_ms / cpu_ms));
+    STOP_RECORD_TIMER(gpu_ms);
+    printf("GPU runtime: %.3f seconds\n", gpu_ms / 1000);
+    printf("GPU took %d%% of the time the CPU did.\n", 
+            (int) (gpu_ms / cpu_ms * 100));
     
     
     
