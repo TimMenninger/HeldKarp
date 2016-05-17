@@ -26,8 +26,12 @@
 
 
 #include <math.h>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include "HeldKarp.cuh"
 
+using namespace std;
 
 
 
@@ -88,10 +92,10 @@ inline void gpuAssert(
 
 //Constructors
 Point2D::Point2D() : x(0.0), y(0.0) {
-    memset(name, 0, NAME_LEN * sizeof(char));
+    name = 0;
 }
 Point2D::Point2D(float x0, float y0) : x(x0), y(y0) {
-    memset(name, 0, NAME_LEN * sizeof(char));
+    name = 0;
 }
 
 // Destructor
@@ -103,7 +107,10 @@ float Point2D::distanceTo(Point2D point) {
     double dy = y - point.y;
     return sqrt(dx * dx + dy * dy);
 }
-
+/*
+float Point2D::x(Point2D point) {
+	return point.x
+*/
 
 
 /**---------------------------------------------------------------------------+
@@ -272,30 +279,57 @@ int main(int argc, char *argv[]) {
     
     /********************************Read Points******************************/
     
-#if 0
+#if 1
     // Actual code
-    FILE *dataFile = fopen(argv[1],"r");
+    ifstream dataFile;
+    dataFile.open(argv[1]);
     if (dataFile == NULL){
         fprintf(stderr, "Datapoints file missing\n");
         exit(EXIT_FAILURE);
     }
+    
+    	// Place to store name, x value, and y value which will be extracted
+		// from the file
+		float name;
+		float x_val;
+		float y_val;
     // Counts how many points are processed
-    int numPoints = 0;
+	int numPoints = 0;
+	int totalPoints;
+	dataFile >> totalPoints;
     // Array of all points in list
     Point2D *allPoints = NULL;
-
+    
+    
+    //Point2D *allPoints = (Point2D *)malloc(totalPoints * sizeof(Point2D));
+		
+	while(dataFile >> name >> x_val >> y_val && numPoints < totalPoints) {
+	//for(int i = 0; i < totalPoints ; i++) {
+		//dataFile >> name >> x_val >> y_val;
+		
+		Point2D nextPoint(x_val, y_val);
+		nextPoint.name = name;
+		Point2D *temp = (Point2D *)realloc(allPoints, (numPoints + 1) * sizeof(Point2D));
+		allPoints = temp;
+		allPoints[numPoints] = nextPoint;
+		
+		printf("   current point :(%f, %f)", allPoints[numPoints].x, allPoints[numPoints].y);	
+		
+		numPoints++;
+		
+		printf("     numpoints: %d   name: %f    x_val: %f    y_val: %f\n",  numPoints, name, x_val, y_val);
+		
+		
+	}
+		dataFile.close();
+		printf("fin\n");
 #else
     // Can use this for debugging when we don't have files
     int numPoints = 5;
     Point2D allPoints[5] = { Point2D(0.0, 0.0), Point2D(1.0, 1.0), Point2D(2.0, 2.0), Point2D(3.0, 3.0), Point2D(4.0, 4.0) };
 #endif
-
-
-
-
-
-
-    
+		
+	
     /* FOR line IN dataFile:
      *      Point2D nextPoint(line[1], line[2])
      *      nextPoint.name = line[0]
@@ -304,6 +338,8 @@ int main(int argc, char *argv[]) {
      *      numPoints++
      * END FOR
      */
+
+	
 
     
     
@@ -346,8 +382,7 @@ int main(int argc, char *argv[]) {
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
     for (int i = 0; i < numSubsets; i++)
         memoArray[i].row = (HeldKarpMemo *) malloc(numPoints * sizeof(HeldKarpMemo));
-    
-    
+	exit(0);
     // Initialize by setting all sets {0, n} to the distance from 1 to n.
     for (int i = 1; i < numPoints; i++) {
         int setIndices[2] = {0, i};
@@ -383,8 +418,7 @@ int main(int argc, char *argv[]) {
     
     STOP_RECORD_TIMER(cpu_ms);
     printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
-    
-    
+
     
     /****************************GPU Implementation***************************/
     

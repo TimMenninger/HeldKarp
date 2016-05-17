@@ -38,7 +38,7 @@
 class Point2D {
 public:
     // Name of the point
-    char    name[NAME_LEN];
+    float   name;
     
     // Coordinates of the point
     float   x;
