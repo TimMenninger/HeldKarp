@@ -72,6 +72,12 @@ public:
     // Subtracts an element from the set
     CUDA_CALLABLE Set operator -(const int& toSub);
     
+    // Adds an element to the set
+    CUDA_CALLABLE Set operator +(const int& toAdd);
+    
+    // Allows accessing elements of values with just square brackets
+    int operator [](const int& i) const;
+    
     // Sorts the values in nlog(n) time
     CUDA_CALLABLE void quickSort(int lowIndex, int highIndex);
     
@@ -95,19 +101,20 @@ public:
 
 
 class HeldKarpMemoRow {
-    // Sorted set of points the row represents
-    Set subset;
 public:
     // Array of actual cells in the row
     HeldKarpMemo *row;
     
     
     // Member functions
-    CUDA_CALLABLE HeldKarpMemoRow(Set set, HeldKarpMemo *initRow);
+    CUDA_CALLABLE HeldKarpMemoRow(HeldKarpMemo *initRow);
     CUDA_CALLABLE ~HeldKarpMemoRow();
     
     // Updates a value in the row
     CUDA_CALLABLE void updateRow(int col, float dist, int prev);
+    
+    // Allows us to call row[] with just the [] array notation
+    CUDA_CALLABLE HeldKarpMemo operator [](const int& i) const;
 };
 
 

@@ -146,6 +146,24 @@ Set Set::operator -(const int& toSub) {
     // Create new set and return it
     return Set(newValues, nValues - 1);
 }
+
+
+// Adds a value to the set
+Set Set::operator +(const int& toAdd) {
+    // Create a new set from the old one, but with the new integer
+    int *newValues = (int *) malloc((nValues + 1) * sizeof(int));
+    for (int i = 0; i < nValues; i++) {
+        newValues[i] = values[i];
+    }
+    newValues[nValues] = toAdd;
+    
+    // Return the new set
+    return Set(newValues, nValues + 1);
+}
+
+
+// Be able to access values in the set with square brackets
+int Set::operator [](const int& i) const { return values[i]; }
     
 
 // Bubblesorts in place.  O(n^2) but that's fast compared to TSP
@@ -168,8 +186,7 @@ void Set::sort() {
 |                                                                             |
 +----------------------------------------------------------------------------*/
 
-HeldKarpMemoRow::HeldKarpMemoRow(Set set, HeldKarpMemo *initRow) : \
-    subset(set), row(initRow) {}
+HeldKarpMemoRow::HeldKarpMemoRow(HeldKarpMemo *initRow) : row(initRow) {}
 
 HeldKarpMemoRow::~HeldKarpMemoRow() {}
 
@@ -177,6 +194,8 @@ void HeldKarpMemoRow::updateRow(int col, float dist, int prev) {
     row[col].dist = dist;
     row[col].prev = prev;
 }
+    
+HeldKarpMemo HeldKarpMemoRow::operator [](const int& i) const { return row[i]; }
 
 
 
@@ -235,7 +254,7 @@ int getSetIndex(Set set, int size) {
     
     while (1) {
         // Add in values for every subset of this subset we skip over
-        for (; lowest < set.values[setIndex]; lowest++)
+        for (; lowest < set[setIndex]; lowest++)
             memoIndex += pow(2, size - lowest - 1);
         
         // Increment the lowest value so that we don't double-check it.
@@ -332,6 +351,7 @@ int main(int argc, char *argv[]) {
             allDistances[j][i] = allDistances[i][j];
         }
     }
+    
     
     // We are creating a 2D array for our memoization where each column is
     // an endpoint and each row is a subset of all of the points whose
