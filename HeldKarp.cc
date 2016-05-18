@@ -26,8 +26,12 @@
 
 
 #include <math.h>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include "HeldKarp.cuh"
 
+using namespace std;
 
 
 
@@ -88,10 +92,10 @@ inline void gpuAssert(
 
 //Constructors
 Point2D::Point2D() : x(0.0), y(0.0) {
-    memset(name, 0, NAME_LEN * sizeof(char));
+    name = 0;
 }
 Point2D::Point2D(float x0, float y0) : x(x0), y(y0) {
-    memset(name, 0, NAME_LEN * sizeof(char));
+    name = 0;
 }
 
 // Destructor
@@ -103,7 +107,10 @@ float Point2D::distanceTo(Point2D point) {
     double dy = y - point.y;
     return sqrt(dx * dx + dy * dy);
 }
-
+/*
+float Point2D::x(Point2D point) {
+	return point.x
+*/
 
 
 /**---------------------------------------------------------------------------+
@@ -270,7 +277,40 @@ int getSetIndex(Set set, int size) {
         memoIndex++;
     }
 }
-        
+
+void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet, HeldKarpMemoRow *memoArray, float** allDistances) {
+		
+	if (largestInSet == largestPossibleInSet) {
+		return;
+	}
+	if (largestInSet == 2) {
+		for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
+			//setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
+		}
+		return;
+			
+	}
+		
+	unsigned int minVal = -1;
+	int minValPrev = 0;
+	for (int k = 0; k < set.nValues; k++) {
+		if (set.values[k] ==  1) {
+			continue;
+		}
+		int val = set.values[k];
+		Set newset = set - val;
+		for (int m = 0; m < newset.nValues; m++) {
+			HeldKarpMemo memo = memoArray[getSetIndex(newset, newset.nValues)].row[val];
+			//minVal = min(minVal, memo[newset - newset.values[m]] + allDistances[m][k]);
+			minValPrev = m;
+		}
+		memoArray[getSetIndex(newset, newset.nValues)].row[val].dist =  minVal;
+		memoArray[getSetIndex(newset, newset.nValues)].row[val].prev = minValPrev;
+	}
+	for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
+		//setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
+	}
+}        
 
 
 
@@ -291,30 +331,59 @@ int main(int argc, char *argv[]) {
     
     /********************************Read Points******************************/
     
-#if 0
+#if 1
     // Actual code
-    FILE *dataFile = fopen(argv[1],"r");
+    ifstream dataFile;
+    dataFile.open(argv[1]);
     if (dataFile == NULL){
         fprintf(stderr, "Datapoints file missing\n");
         exit(EXIT_FAILURE);
     }
+    
+    	// Place to store name, x value, and y value which will be extracted
+		// from the file
+		float name;
+		float x_val;
+		float y_val;
     // Counts how many points are processed
-    int numPoints = 0;
+	int numPoints = 0;
+	int totalPoints;
+	dataFile >> totalPoints;
     // Array of all points in list
     Point2D *allPoints = NULL;
-
+    
+    
+    //Point2D *allPoints = (Point2D *)malloc(totalPoints * sizeof(Point2D));
+		
+	while(dataFile >> name >> x_val >> y_val && numPoints < totalPoints) {
+	//for(int i = 0; i < totalPoints ; i++) {
+		//dataFile >> name >> x_val >> y_val;
+		
+		Point2D nextPoint(x_val, y_val);
+		nextPoint.name = name;
+		Point2D *temp = (Point2D *)realloc(allPoints, (numPoints + 1) * sizeof(Point2D));
+		allPoints = temp;
+		allPoints[numPoints] = nextPoint;
+		
+		//printf("   current point :(%f, %f)", allPoints[numPoints].x, allPoints[numPoints].y);	
+		
+		numPoints++;
+		
+		//printf("     numpoints: %d   name: %f    x_val: %f    y_val: %f\n",  numPoints, name, x_val, y_val);
+		
+		
+	}
+		dataFile.close();
+		printf("fin\n");
 #else
     // Can use this for debugging when we don't have files
     int numPoints = 5;
     Point2D allPoints[5] = { Point2D(0.0, 0.0), Point2D(1.0, 1.0), Point2D(2.0, 2.0), Point2D(3.0, 3.0), Point2D(4.0, 4.0) };
 #endif
-
-
-
-
-
-
-    
+		
+	for (int i = 0; i < numPoints; i++) {
+		printf("%f, %f \n", allPoints[i].x, allPoints[i].y);
+	}
     /* FOR line IN dataFile:
      *      Point2D nextPoint(line[1], line[2])
      *      nextPoint.name = line[0]
@@ -323,6 +392,8 @@ int main(int argc, char *argv[]) {
      *      numPoints++
      * END FOR
      */
+
+	
 
     
     
@@ -338,9 +409,9 @@ int main(int argc, char *argv[]) {
     // Create a numPoints square array of distances between each other, and
     //     initialize it to zero
     float **allDistances = (float **) malloc(numPoints * sizeof(float *));
-    for (int i = 0; i < numPoints; i++)
+    for (int i = 0; i < numPoints; i++) {
         allDistances[i] = (float *) malloc(numPoints * sizeof(float));
-
+	}
     // Find the distance between each set of two points.  For this, only find
     //     the upper triangle, and copy to the lower triangle
     for (int i = 0; i < numPoints; i++) {
@@ -349,6 +420,8 @@ int main(int argc, char *argv[]) {
             allDistances[i][j] = allPoints[i].distanceTo(allPoints[j]);
             // Distance is same in either direction
             allDistances[j][i] = allDistances[i][j];
+            
+           // printf("distance from %d to %d = %f", i, j, allDistances[i][j]);
         }
     }
     
@@ -364,10 +437,10 @@ int main(int argc, char *argv[]) {
     int numSubsets = pow(2, numPoints - 1) - 1;
     HeldKarpMemoRow *memoArray = (HeldKarpMemoRow *) malloc(numSubsets * sizeof(HeldKarpMemoRow));
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
-    for (int i = 0; i < numSubsets; i++)
+    for (int i = 0; i < numSubsets; i++) {
         memoArray[i].row = (HeldKarpMemo *) malloc(numPoints * sizeof(HeldKarpMemo));
-    
-    
+		exit(0);
+	}
     // Initialize by setting all sets {0, n} to the distance from 1 to n.
     for (int i = 1; i < numPoints; i++) {
         int setIndices[2] = {0, i};
@@ -376,7 +449,14 @@ int main(int argc, char *argv[]) {
     }
     
     // Continue with rest of algorithm.
+
+	
+    
     for (int i = 3; i < numPoints; i++) {
+		int setIndices[2] = {0, i};
+		setOfAllSubsets(Set(setIndices, 2), i, numPoints, memoArray, allDistances);
+		
+		
         /*  for all subsets, S, of {1, 2, ..., numPoints} of size i:
          *      for each k in S:
          *          unsigned int minVal = -1
@@ -403,8 +483,7 @@ int main(int argc, char *argv[]) {
     
     STOP_RECORD_TIMER(cpu_ms);
     printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
-    
-    
+
     
     /****************************GPU Implementation***************************/
     
