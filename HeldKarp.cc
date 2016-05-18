@@ -107,10 +107,6 @@ float Point2D::distanceTo(Point2D point) {
     double dy = y - point.y;
     return sqrt(dx * dx + dy * dy);
 }
-/*
-float Point2D::x(Point2D point) {
-	return point.x
-*/
 
 
 /**---------------------------------------------------------------------------+
@@ -280,35 +276,38 @@ int getSetIndex(Set set, int size) {
 
 void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet, HeldKarpMemoRow *memoArray, float** allDistances) {
 		
+    for (int i = 0; i < set.nValues; i++) {
+        printf("%d ", set[i]);
+    }
+    printf("\n");
 	if (largestInSet == largestPossibleInSet) {
 		return;
 	}
-	if (largestInSet == 2) {
+	if (set.nValues == 2) {
 		for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
-			//setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
+			setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
 		}
 		return;
-			
 	}
-		
-	unsigned int minVal = -1;
+
+	float minVal = (unsigned int) -1;
 	int minValPrev = 0;
 	for (int k = 0; k < set.nValues; k++) {
-		if (set.values[k] ==  1) {
-			continue;
-		}
-		int val = set.values[k];
-		Set newset = set - val;
-		for (int m = 0; m < newset.nValues; m++) {
-			HeldKarpMemo memo = memoArray[getSetIndex(newset, newset.nValues)].row[val];
-			//minVal = min(minVal, memo[newset - newset.values[m]] + allDistances[m][k]);
-			minValPrev = m;
-		}
-		memoArray[getSetIndex(newset, newset.nValues)].row[val].dist =  minVal;
-		memoArray[getSetIndex(newset, newset.nValues)].row[val].prev = minValPrev;
-	}
+		if (set[k] ==  0)
+            continue;
+        int val = set[k];
+        Set newset = set - val;
+        for (int m = 0; m < 10; m++) {
+            //if (set[m] == set[k] || set[m] == 0)
+            //    continue;
+            //HeldKarpMemoRow memo = memoArray[getSetIndex(newset - val, largestPossibleInSet + 1)];
+            //minVal = min(minVal, memo[set[m]].dist + allDistances[set[m]][val]);
+            //minValPrev = set[m];
+        }
+        //memoArray[getSetIndex(set, largestPossibleInSet + 1)].updateRow(val, minVal, minValPrev);
+    }
 	for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
-		//setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
+		setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
 	}
 }        
 
@@ -331,7 +330,7 @@ int main(int argc, char *argv[]) {
     
     /********************************Read Points******************************/
     
-#if 1
+#if 0
     // Actual code
     ifstream dataFile;
     dataFile.open(argv[1]);
@@ -420,8 +419,6 @@ int main(int argc, char *argv[]) {
             allDistances[i][j] = allPoints[i].distanceTo(allPoints[j]);
             // Distance is same in either direction
             allDistances[j][i] = allDistances[i][j];
-            
-           // printf("distance from %d to %d = %f", i, j, allDistances[i][j]);
         }
     }
     
@@ -439,7 +436,6 @@ int main(int argc, char *argv[]) {
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
     for (int i = 0; i < numSubsets; i++) {
         memoArray[i].row = (HeldKarpMemo *) malloc(numPoints * sizeof(HeldKarpMemo));
-		exit(0);
 	}
     // Initialize by setting all sets {0, n} to the distance from 1 to n.
     for (int i = 1; i < numPoints; i++) {
@@ -452,7 +448,7 @@ int main(int argc, char *argv[]) {
 
 	
     
-    for (int i = 3; i < numPoints; i++) {
+    for (int i = 1; i < numPoints; i++) {
 		int setIndices[2] = {0, i};
 		setOfAllSubsets(Set(setIndices, 2), i, numPoints, memoArray, allDistances);
 		
