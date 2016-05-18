@@ -275,7 +275,7 @@ int getSetIndex(Set set, int size) {
 }
 
 void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet, HeldKarpMemoRow *memoArray, float** allDistances) {
-		
+	printf("%d: ", getSetIndex(set, largestPossibleInSet + 1));	
     for (int i = 0; i < set.nValues; i++) {
         printf("%d ", set[i]);
     }
@@ -297,14 +297,16 @@ void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet, HeldKa
             continue;
         int val = set[k];
         Set newset = set - val;
-        for (int m = 0; m < 10; m++) {
-            //if (set[m] == set[k] || set[m] == 0)
-            //    continue;
-            //HeldKarpMemoRow memo = memoArray[getSetIndex(newset - val, largestPossibleInSet + 1)];
-            //minVal = min(minVal, memo[set[m]].dist + allDistances[set[m]][val]);
-            //minValPrev = set[m];
+        for (int m = 0; m < newset.nValues; m++) {
+            if (set[m] == set[k] || set[m] == 0)
+                continue;
+            HeldKarpMemoRow memo = memoArray[getSetIndex(newset, largestPossibleInSet + 1)];
+            if (minVal > memo[set[m]].dist + allDistances[set[m]][val]) {
+                minVal = memo[set[m]].dist + allDistances[set[m]][val];
+                minValPrev = set[m];
+            }
         }
-        //memoArray[getSetIndex(set, largestPossibleInSet + 1)].updateRow(val, minVal, minValPrev);
+        memoArray[getSetIndex(set, largestPossibleInSet + 1)].updateRow(val, minVal, minValPrev);
     }
 	for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
 		setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
@@ -320,9 +322,9 @@ void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet, HeldKa
 +----------------------------------------------------------------------------*/
 
 int main(int argc, char *argv[]) {
-    TA_Utilities::select_least_utilized_GPU();
+    //TA_Utilities::select_least_utilized_GPU();
     int max_time_allowed_in_seconds = 300;
-    TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
+    //TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
     
     cudaEvent_t start;
     cudaEvent_t stop;
@@ -450,7 +452,7 @@ int main(int argc, char *argv[]) {
     
     for (int i = 1; i < numPoints; i++) {
 		int setIndices[2] = {0, i};
-		setOfAllSubsets(Set(setIndices, 2), i, numPoints, memoArray, allDistances);
+		setOfAllSubsets(Set(setIndices, 2), i, numPoints - 1, memoArray, allDistances);
 		
 		
         /*  for all subsets, S, of {1, 2, ..., numPoints} of size i:
@@ -467,6 +469,13 @@ int main(int argc, char *argv[]) {
          *          memoArray[getSetIndex(S)].row[k].prev = minValPrev;
          *  Trace from dest to source using prev values
          */
+    }
+    
+    for (int i = 0; i < numSubsets; i++) {
+        for (int j = 0; j < numPoints; j++) {
+            printf("%.2f ", memoArray[i][j].dist);
+        }
+        printf("\n");
     }
      
     // Free all allocated memory
