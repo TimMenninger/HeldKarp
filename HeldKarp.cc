@@ -193,9 +193,8 @@ HeldKarpMemoRow::HeldKarpMemoRow(HeldKarpMemo *initRow) : row(initRow) {}
 
 HeldKarpMemoRow::~HeldKarpMemoRow() {}
 
-void HeldKarpMemoRow::updateRow(int col, float dist, int prev) {
+void HeldKarpMemoRow::updateRow(int col, float dist) {
     row[col].dist = dist;
-    row[col].prev = prev;
 }
     
 HeldKarpMemo HeldKarpMemoRow::operator [](const int& i) const { return row[i]; }
@@ -274,42 +273,60 @@ int getSetIndex(Set set, int size) {
     }
 }
 
-void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet, HeldKarpMemoRow *memoArray, float** allDistances) {
-	printf("%d: ", getSetIndex(set, largestPossibleInSet + 1));	
-    for (int i = 0; i < set.nValues; i++) {
-        printf("%d ", set[i]);
-    }
-    printf("\n");
-	if (largestInSet == largestPossibleInSet) {
-		return;
-	}
+void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet, 
+	HeldKarpMemoRow *memoArray, float** allDistances, int curSize) {
+
+	/*Base case is set of lengths 2, no need to update any values just 
+	immediately recurse on all inputs*/
 	if (set.nValues == 2) {
 		for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
-			setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
+			setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances, curSize);
 		}
 		return;
 	}
+	
+	/* Return if set length is greater than currant because this is irrelvant
+	 * since the recursive calls only call on sets with length greater
+	 * than the current set */
+	if (set.nValues > curSize) {
+		return;
+	}
+	
+	/* Only updating memoization array for lists of a given size */
+	if (set.nValues == curSize) {
+		float minVal = (unsigned int) -1;
 
-	float minVal = (unsigned int) -1;
-	int minValPrev = 0;
-	for (int k = 0; k < set.nValues; k++) {
-		if (set[k] ==  0)
-            continue;
-        int val = set[k];
-        Set newset = set - val;
-        for (int m = 0; m < newset.nValues; m++) {
-            if (set[m] == set[k] || set[m] == 0)
-                continue;
-            HeldKarpMemoRow memo = memoArray[getSetIndex(newset, largestPossibleInSet + 1)];
-            if (minVal > memo[set[m]].dist + allDistances[set[m]][val]) {
-                minVal = memo[set[m]].dist + allDistances[set[m]][val];
-                minValPrev = set[m];
-            }
-        }
-        memoArray[getSetIndex(set, largestPossibleInSet + 1)].updateRow(val, minVal, minValPrev);
-    }
+		
+		/* For all subsets of the set minus one elements */
+		for (int k = 0; k < set.nValues; k++) {
+			if (set[k] ==  0)
+				continue;
+			int val = set[k];
+			Set newset = set - val;
+			
+			/* Iterate over this new subset */
+			for (int m = 0; m < newset.nValues; m++) {
+				
+				if (newset[m] == 0)
+					continue;
+				/* Calculate values to update memoization array */ 
+				HeldKarpMemoRow memo = memoArray[getSetIndex(newset, largestPossibleInSet + 1)];
+				if (minVal > memo[newset[m]].dist + allDistances[newset[m]][val]) {
+					minVal = memo[newset[m]].dist + allDistances[newset[m]][val];
+				}
+			}
+			/* Update memoization array */
+			memoArray[getSetIndex(set, largestPossibleInSet + 1)].updateRow(val, minVal);
+		}
+	}
+	/* If we have reached largest set size then recursion has finished so break */
+	if (largestInSet == largestPossibleInSet) {	
+		return;
+	}
+	
+	/* Recursive call for all sets with a length of one more than current */
 	for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
-		setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances);
+		setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances, curSize);
 	}
 }        
 
@@ -332,7 +349,7 @@ int main(int argc, char *argv[]) {
     
     /********************************Read Points******************************/
     
-#if 0
+#if 1
     // Actual code
     ifstream dataFile;
     dataFile.open(argv[1]);
@@ -375,27 +392,16 @@ int main(int argc, char *argv[]) {
 		
 	}
 		dataFile.close();
-		printf("fin\n");
 #else
     // Can use this for debugging when we don't have files
     int numPoints = 5;
-    Point2D allPoints[5] = { Point2D(0.0, 0.0), Point2D(1.0, 1.0), Point2D(2.0, 2.0), Point2D(3.0, 3.0), Point2D(4.0, 4.0) };
+    Point2D allPoints[5] = { Point2D(0.0, 0.0), Point2D(2.0, 2.0), Point2D(4.0, 4.0), Point2D(1.0, 1.0), Point2D(3.0, 3.0) };
 #endif
-		
+	printf("Values: \n");
 	for (int i = 0; i < numPoints; i++) {
-		printf("%f, %f \n", allPoints[i].x, allPoints[i].y);
+		printf("Point%d (%f, %f) \n", i, allPoints[i].x, allPoints[i].y);
 	}
-    /* FOR line IN dataFile:
-     *      Point2D nextPoint(line[1], line[2])
-     *      nextPoint.name = line[0]
-     *      allPoints = realloc((numPoints + 1) * sizeof(Point2D))
-     *      allPoints[numPoints] = nextPoint
-     *      numPoints++
-     * END FOR
-     */
-
-	
-
+	printf("\n");
     
     
     /****************************CPU Implementation***************************/
@@ -411,7 +417,7 @@ int main(int argc, char *argv[]) {
     //     initialize it to zero
     float **allDistances = (float **) malloc(numPoints * sizeof(float *));
     for (int i = 0; i < numPoints; i++) {
-        allDistances[i] = (float *) malloc(numPoints * sizeof(float));
+        allDistances[i] = (float *) calloc(numPoints, sizeof(float));
 	}
     // Find the distance between each set of two points.  For this, only find
     //     the upper triangle, and copy to the lower triangle
@@ -423,8 +429,8 @@ int main(int argc, char *argv[]) {
             allDistances[j][i] = allDistances[i][j];
         }
     }
-    
-    
+
+	
     // We are creating a 2D array for our memoization where each column is
     // an endpoint and each row is a subset of all of the points whose
     // cardinality is greater than 2.  The value at each index [i][j] is 
@@ -437,46 +443,69 @@ int main(int argc, char *argv[]) {
     HeldKarpMemoRow *memoArray = (HeldKarpMemoRow *) malloc(numSubsets * sizeof(HeldKarpMemoRow));
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
     for (int i = 0; i < numSubsets; i++) {
-        memoArray[i].row = (HeldKarpMemo *) malloc(numPoints * sizeof(HeldKarpMemo));
+        memoArray[i].row = (HeldKarpMemo *) calloc(numPoints, sizeof(HeldKarpMemo));
 	}
+	
     // Initialize by setting all sets {0, n} to the distance from 1 to n.
     for (int i = 1; i < numPoints; i++) {
         int setIndices[2] = {0, i};
         int index = getSetIndex(Set(setIndices, 2), numPoints);
-        memoArray[index].updateRow(i, allDistances[0][i], 0);
+        memoArray[index].updateRow(i, allDistances[0][i]);
     }
     
     // Continue with rest of algorithm.
-
+	for (int j = 2; j < numPoints + 1; j++) {
+		for (int i = 1; i < numPoints; i++) {
+			int setIndices[2] = {0, i};
+			setOfAllSubsets(Set(setIndices, 2), i, numPoints - 1, memoArray, allDistances, j);
+		}
+	}
+		
+	int fullSetList[numPoints];
+	for (int k = 0; k < numPoints; k++) {
+		fullSetList[k] = k;	
+	}
 	
-    
-    for (int i = 1; i < numPoints; i++) {
-		int setIndices[2] = {0, i};
-		setOfAllSubsets(Set(setIndices, 2), i, numPoints - 1, memoArray, allDistances);
+	Set fullSet = Set(fullSetList, numPoints);
+	float minval;
+	int minvalj;
+	float currdist;
+	int *path = (int *) malloc(numPoints + 1 * sizeof(int));
+	path[0] = 0;
+	float distance = 0.;
+	
+	//Backtrace through memoized array to find final path
+	/* Loop until we get back to start */
+	for (int i = 1; i < numPoints ; i++) {
+		minval = (unsigned int) -1;
+		minvalj = 0;
 		
-		
-        /*  for all subsets, S, of {1, 2, ..., numPoints} of size i:
-         *      for each k in S:
-         *          unsigned int minVal = -1
-         *          int minValPrev = 0;
-         *          HeldKarpMemo *memo = memoArray[getSetIndex(S - k)].row;
-         *          for each m in S:
-         *              if (1 == m || k == m):
-         *                  continue
-         *              minVal = min(minVal, memo[m].dist + allDistances[m][k]);
-         *              minValPrev = m;
-         *          memoArray[getSetIndex(S)].row[k].dist = minVal;
-         *          memoArray[getSetIndex(S)].row[k].prev = minValPrev;
-         *  Trace from dest to source using prev values
-         */
-    }
-    
-    for (int i = 0; i < numSubsets; i++) {
-        for (int j = 0; j < numPoints; j++) {
-            printf("%.2f ", memoArray[i][j].dist);
-        }
-        printf("\n");
-    }
+		/* Loop to find value and index of shortest path in the given row */
+		for (int j = 1; j < numPoints; j++) {
+			currdist = memoArray[getSetIndex(fullSet, numPoints)][j].dist;
+			if (currdist < minval  && currdist > 0) {
+				minval = currdist;
+				minvalj = j;	
+			}
+		}
+		/* Remove value from set */
+		fullSet = fullSet - minvalj; 
+		/* Update path to include removed value */
+		path[i] = minvalj;
+		/* Store length of final path */
+		if (i == 1) {
+			distance = minval;
+		}
+	
+	}
+	
+	/* Results */
+	printf("Final Path: ");
+	for (int i = 0; i< numPoints + 1; i++) 
+		printf("%d ", path[i]);
+	printf("\nFinal Path Length: %f", distance);
+	printf("\n\n");
+	
      
     // Free all allocated memory
     for (int i = 0; i < numPoints; i++) {

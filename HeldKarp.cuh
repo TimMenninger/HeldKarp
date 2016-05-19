@@ -90,12 +90,10 @@ class HeldKarpMemo {
 public:
     // Shortest distance from point 1 to this point
     float   dist;
-    
-    // The second to last point index in the shortest-known path
-    int     prev;
+
     
     //Member functions
-    CUDA_CALLABLE HeldKarpMemo() : dist(0.0), prev(0) {};
+    CUDA_CALLABLE HeldKarpMemo() : dist(0.0) {};
     CUDA_CALLABLE ~HeldKarpMemo() {};
 };
 
@@ -111,7 +109,7 @@ public:
     CUDA_CALLABLE ~HeldKarpMemoRow();
     
     // Updates a value in the row
-    CUDA_CALLABLE void updateRow(int col, float dist, int prev);
+    CUDA_CALLABLE void updateRow(int col, float dist);
     
     // Allows us to call row[] with just the [] array notation
     CUDA_CALLABLE HeldKarpMemo operator [](const int& i) const;
