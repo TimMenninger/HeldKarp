@@ -286,12 +286,6 @@ void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
 	
 	/* Only updating memoization array for lists of a given size */
 	if (set.nValues == curSize) {
-        
-        for (int i = 0; i < set.nValues; i++) {
-            printf("%d ", set[i]);
-        }
-        printf("\n");
-
 		
 		/* For all subsets of the set minus one elements */
 		for (int k = 0; k < set.nValues; k++) {
@@ -429,12 +423,6 @@ int main(int argc, char *argv[]) {
             allDistances[j][i] = allDistances[i][j];
         }
     }
-    for (int i = 0; i < numPoints; i++) {
-        for (int j = 0; j < numPoints; j++) {
-            printf("%.3f ", allDistances[i][j]);
-        }
-        printf("\n");
-    }
 
     // We are creating a 2D array for our memoization where each column is
     // an endpoint and each row is a subset of all of the points whose
@@ -465,22 +453,6 @@ int main(int argc, char *argv[]) {
 			setOfAllSubsets(Set(setIndices, 2), i, numPoints - 1, memoArray, allDistances, j);
 		}
 	}
-		
-        
-        
-        
-        
-    printf("\n\n");
-    for (int i = 0; i < numSubsets; i++) {
-        for (int j = 0; j < numPoints; j++) {
-            printf("%d ", memoArray[i][j].prev);
-        }
-        printf("\n");
-    }
-    
-    
-    
-    
     
 	int fullSetList[numPoints];
 	for (int k = 0; k < numPoints; k++) {
@@ -494,7 +466,6 @@ int main(int argc, char *argv[]) {
     int next = 0;
 	int *path = (int *) malloc(numPoints + 1 * sizeof(int));
 	path[0] = 0; // First point is always the source
-    path[numPoints] = 0; // Always end at the source
 	float distance = (unsigned int) -1;
     
     // Find the last point in the minimum distance path
@@ -502,8 +473,9 @@ int main(int argc, char *argv[]) {
         currdist = memoArray[fullSetIndex][j].dist;
         // Update only if we found a shorter distance
         if (currdist < distance) {
-            path[1] = j;
             next = memoArray[fullSetIndex][j].prev;
+            path[1] = j;
+            path[2] = next;
             distance = currdist;
         }
     }
@@ -511,8 +483,8 @@ int main(int argc, char *argv[]) {
     // Follow the trail of prev indices to get the rest of the path
     for (int i = 2; i < numPoints; i++) {
         fullSet = fullSet - path[i - 1];
-        path[i] = next;
         next = memoArray[getSetIndex(fullSet, numPoints)][path[i]].prev;
+        path[i + 1] = next;
     }
     
     // The distance is the first iteration distance, which counts all points,
