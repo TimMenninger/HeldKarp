@@ -90,6 +90,9 @@ class HeldKarpMemo {
 public:
     // Shortest distance from point 1 to this point
     float   dist;
+    
+    // Previous point in shortest path from 1 to this point
+    int prev; 
 
     
     //Member functions
@@ -109,11 +112,13 @@ public:
     CUDA_CALLABLE ~HeldKarpMemoRow();
     
     // Updates a value in the row
-    CUDA_CALLABLE void updateRow(int col, float dist);
+    CUDA_CALLABLE void updateRow(int col, float dist, int prev);
     
     // Allows us to call row[] with just the [] array notation
     CUDA_CALLABLE HeldKarpMemo operator [](const int& i) const;
 };
+
+typedef HeldKarpMemoRow* HeldKarpMemoArray;
 
 
 #endif // ifndef HELDKARP
