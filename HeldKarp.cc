@@ -18,9 +18,6 @@
 | Authors:      Tim Menninger                                                 |
 |               Jared Reed                                                    |
 |                                                                             |
-| Revisions:    05/14/16 - Tim Menninger: First attempt at CPU implementation |
-|                   of Held-Karp algorithm                                    |
-|                                                                             |
 +----------------------------------------------------------------------------*/
 
 
@@ -79,127 +76,6 @@ inline void gpuAssert(
         gpuErrChk(cudaEventDestroy(start));                                \
         gpuErrChk(cudaEventDestroy(stop));                                 \
     }
-    
-
-    
-    
-    
-/**---------------------------------------------------------------------------+
-|                                                                             |
-|                                POINT2D CLASS                                |
-|                                                                             |
-+----------------------------------------------------------------------------*/
-
-//Constructors
-Point2D::Point2D() : x(0.0), y(0.0) {
-    name = 0;
-}
-Point2D::Point2D(float x0, float y0) : x(x0), y(y0) {
-    name = 0;
-}
-
-// Destructor
-Point2D::~Point2D() {}
-
-// Returns the Cartesian distance between two points
-float Point2D::distanceTo(Point2D point) {
-    double dx = x - point.x;
-    double dy = y - point.y;
-    return sqrt(dx * dx + dy * dy);
-}
-
-
-/**---------------------------------------------------------------------------+
-|                                                                             |
-|                                  SET CLASS                                  |
-|                                                                             |
-+----------------------------------------------------------------------------*/
-
-Set::Set(int *setValues, int numVals) : values(setValues), nValues(numVals) {}
-Set::~Set() {}
-
-// Determines whether two sets are equivalent
-bool Set::operator ==(const Set& otherSet) {
-    //  Not the same if the two are different sizes
-    if (nValues != otherSet.nValues)
-        return false;
-    // Otherwise, check that they have the same values
-    Set *otherSetCopy = new Set(NULL, 0);
-    memcpy(otherSetCopy, &otherSet, sizeof(Set));
-    otherSetCopy->sort();
-    for (int i = 0; i < nValues; i++)
-        if (values[i] != otherSetCopy->values[i])
-            return false;
-    // All values were equal
-    return true;
-}
-
-// Subtracts a value from the set
-Set Set::operator -(const int& toSub) {
-    // Create new array of values for new set
-    int *newValues = (int *) malloc((nValues - 1) * sizeof(int));
-    int index = 0;
-    for (int i = 0; i < nValues; i++) {
-        if (toSub != values[i]) {
-            newValues[index] = values[i];
-            index++;
-        }
-    }
-    
-    // Create new set and return it
-    return Set(newValues, nValues - 1);
-}
-
-
-// Adds a value to the set
-Set Set::operator +(const int& toAdd) {
-    // Create a new set from the old one, but with the new integer
-    int *newValues = (int *) malloc((nValues + 1) * sizeof(int));
-    for (int i = 0; i < nValues; i++) {
-        newValues[i] = values[i];
-    }
-    newValues[nValues] = toAdd;
-    
-    // Return the new set
-    return Set(newValues, nValues + 1);
-}
-
-
-// Be able to access values in the set with square brackets
-int Set::operator [](const int& i) const { return values[i]; }
-    
-
-// Bubblesorts in place.  O(n^2) but that's fast compared to TSP
-void Set::sort() {
-    for (int i = 0; i < nValues; i++) {
-        for (int j = 1; j < nValues - i; j++) {
-            if (values[j - 1] > values[j]) {
-                int temp = values[j];
-                values[j] = values[j - 1];
-                values[j - 1] = temp;
-            }
-        }
-    }
-}
-
-
-/**---------------------------------------------------------------------------+
-|                                                                             |
-|                           HELDKARP MEMO ROW CLASS                           |
-|                                                                             |
-+----------------------------------------------------------------------------*/
-
-HeldKarpMemoRow::HeldKarpMemoRow(HeldKarpMemo *initRow) : row(initRow) {}
-
-HeldKarpMemoRow::~HeldKarpMemoRow() {}
-
-void HeldKarpMemoRow::updateRow(int col, float dist, int prev) {
-    row[col].dist = dist;
-    row[col].prev = prev;
-}
-    
-HeldKarpMemo HeldKarpMemoRow::operator [](const int& i) const { return row[i]; }
-
 
 
 /**---------------------------------------------------------------------------+
@@ -332,17 +208,22 @@ void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
 +----------------------------------------------------------------------------*/
 
 int main(int argc, char *argv[]) {
-    //TA_Utilities::select_least_utilized_GPU();
+    TA_Utilities::select_least_utilized_GPU();
     int max_time_allowed_in_seconds = 3000;
-    //TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
+    TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
     
     cudaEvent_t start;
     cudaEvent_t stop;
     
     
+    if (argc != 4) {
+        fprintf(stderr, "usage: ./HeldKarp <dataPointFile> <threadsPerBlock> <maxBlocks>");
+        exit(EXIT_FAILURE);
+    }
+    
+    
     /********************************Read Points******************************/
     
-#if 1
     // Actual code
     ifstream dataFile;
     dataFile.open(argv[1]);
@@ -351,46 +232,28 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
     
-    	// Place to store name, x value, and y value which will be extracted
-		// from the file
-		float name;
-		float x_val;
-		float y_val;
+    // Place to store name, x value, and y value which will be extracted
+    // from the file
+    float name;
+    float x_val;
+    float y_val;
     // Counts how many points are processed
 	int numPoints = 0;
-	int totalPoints;
-	dataFile >> totalPoints;
     // Array of all points in list
-    Point2D *allPoints = NULL;
-    
-    
-    //Point2D *allPoints = (Point2D *)malloc(totalPoints * sizeof(Point2D));
+    Point2D *allPoints = (Point2D *)malloc((NUM_POINTS) * sizeof(Point2D));
 		
-	while(1) {
-	//for(int i = 0; i < totalPoints ; i++) {
+	while(numPoints < NUM_POINTS) {
 		dataFile >> name >> x_val >> y_val;
 		
 		Point2D nextPoint(x_val, y_val);
 		nextPoint.name = name;
-		Point2D *temp = (Point2D *)realloc(allPoints, (numPoints + 1) * sizeof(Point2D));
-		allPoints = temp;
 		allPoints[numPoints] = nextPoint;
 		
-		//printf("   current point :(%f, %f)", allPoints[numPoints].x, allPoints[numPoints].y);	
-		
 		numPoints++;
-		
-		//printf("     numpoints: %d   name: %f    x_val: %f    y_val: %f\n",  numPoints, name, x_val, y_val);
-		
-		if (numPoints == totalPoints)
-            break;
 	}
-		dataFile.close();
-#else
-    // Can use this for debugging when we don't have files
-    int numPoints = 5;
-    Point2D allPoints[5] = { Point2D(0.0, 0.0), Point2D(2.0, 2.0), Point2D(4.0, 4.0), Point2D(1.0, 1.0), Point2D(3.0, 3.0) };
-#endif
+    dataFile.close();
+        
+        
 	printf("Values: \n");
 	for (int i = 0; i < numPoints; i++) {
 		printf("Point%d (%.3f, %.3f) \n", i, allPoints[i].x, allPoints[i].y);
@@ -401,7 +264,7 @@ int main(int argc, char *argv[]) {
     /****************************CPU Implementation***************************/
     
     float cpu_ms = -1;
-    //START_TIMER();
+    START_TIMER();
     
     /*! Apply Held-Karp algorithm.  For this part, we referred to Wikipedia's
      *     page on Held-Karp to help us learn the algorithm.
@@ -423,7 +286,7 @@ int main(int argc, char *argv[]) {
             allDistances[j][i] = allDistances[i][j];
         }
     }
-
+    
     // We are creating a 2D array for our memoization where each column is
     // an endpoint and each row is a subset of all of the points whose
     // cardinality is greater than 2.  The value at each index [i][j] is 
@@ -434,10 +297,8 @@ int main(int argc, char *argv[]) {
     // - 1) - 1
     int numSubsets = pow(2, numPoints - 1) - 1;
     HeldKarpMemoArray memoArray = (HeldKarpMemoArray) malloc(numSubsets * sizeof(HeldKarpMemoRow));
+    assert (memoArray != NULL);
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
-    for (int i = 0; i < numSubsets; i++) {
-        memoArray[i].row = (HeldKarpMemo *) calloc(numPoints, sizeof(HeldKarpMemo));
-	}
 	
     // Initialize by setting all sets {0, n} to the distance from 1 to n.
     for (int i = 1; i < numPoints; i++) {
@@ -507,20 +368,83 @@ int main(int argc, char *argv[]) {
     delete memoArray;
  
     
-    //STOP_RECORD_TIMER(cpu_ms);
-    //printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
+    STOP_RECORD_TIMER(cpu_ms);
+    printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
 
     
     /****************************GPU Implementation***************************/
     
     float gpu_ms = -1;
-    //START_TIMER();
+    START_TIMER();
     
     
-    //STOP_RECORD_TIMER(gpu_ms);
-    //printf("GPU runtime: %.3f seconds\n", gpu_ms / 1000);
-    //printf("GPU took %d%% of the time the CPU did.\n", 
-    //        (int) (gpu_ms / cpu_ms * 100));
+    /*=========================== ALLOCATE MEMORY ============================*/
+
+    // Use command line arguments to define how many blocks and threads the GPU
+    // will use in its kernel
+    const unsigned int threadsPerBlock = atoi(argv[2]);
+    const unsigned int maxBlocks = atoi(argv[3]);
+    
+    // Define the number of blocks and threads per block that the GPU will use.
+    // This will differ from kernel to kernel
+    unsigned int nBlocks;
+    
+    // Copy the list of points
+    Point2D *dev_allPoints;
+    cudaMalloc((void **) &dev_allPoints, numPoints * sizeof(Point2D));
+    cudaMemcpy(dev_allPoints, allPoints, numPoints * sizeof(Point2D),
+        cudaMemcpyHostToDevice);
+     
+    // Create space for a list of distances between any two points
+    float *dev_allDistances;
+    cudaMalloc((void **) &dev_allDistances, numPoints * numPoints * sizeof(float));
+    
+    // Create space for the memoization array
+    HeldKarpMemoArray dev_memoArray;
+    cudaMalloc((void **) &dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow));
+    
+
+    
+    
+    /*============================ GET DISTANCES ============================*/
+    
+    // Get distances kernel will run on a square matrix with side numPoints
+    nBlocks = min(maxBlocks, (unsigned int) ceil((numPoints * numPoints) / float(threadsPerBlock)));
+                
+    // Fill in the distances array
+    cudaCallGetDistances(nBlocks, threadsPerBlock, dev_allPoints, numPoints, dev_allDistances);
+        
+    checkCUDAKernelError(); 
+   
+    
+    /*=========================== INIT MEMO ARRAY ===========================*/
+
+    // Initializing memo will run once for each point
+    nBlocks = min(maxBlocks, (unsigned int) ceil(numPoints / float(threadsPerBlock)));
+    
+    // Fill in the memo array for al subsets of length 2
+    cudaCallInitializeMemoArray(nBlocks, threadsPerBlock, dev_memoArray, dev_allPoints,
+        numPoints, dev_allDistances);
+        
+    checkCUDAKernelError(); 
+   
+    
+    /*========================== FIND SHORTEST PATH =========================*/
+    
+    
+    checkCUDAKernelError();
+   
+    
+    /*============================== FREE MEMORY ============================*/
+    
+    cudaFree(dev_allPoints);
+    cudaFree(dev_allDistances);
+    cudaFree(dev_memoArray);
+    
+    STOP_RECORD_TIMER(gpu_ms);
+    printf("GPU runtime: %.3f seconds\n", gpu_ms / 1000);
+    printf("GPU took %d%% of the time the CPU did.\n", 
+            (int) (gpu_ms / cpu_ms * 100));
     
     
     
