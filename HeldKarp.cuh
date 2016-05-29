@@ -47,17 +47,17 @@ class Point2D {
 public:
     // Name of the point
     float   name;
-    
+
     // Coordinates of the point
     float   x;
     float   y;
-    
+
 
     // Member functions
     CUDA_CALLABLE Point2D() : name(0.), x(0.), y(0.) {};
     CUDA_CALLABLE Point2D(float x0, float y0) : name(0.), x(x0), y(y0) {};
     CUDA_CALLABLE ~Point2D() {};
-    
+
     // Cartesian distance between two points
     CUDA_CALLABLE float distanceTo(Point2D point) {
         double dx = x - point.x;
@@ -73,15 +73,15 @@ public:
     int values[NUM_POINTS];
     // Number of values in the set
     int nValues;
-    
+
     // Member functions
     CUDA_CALLABLE Set(int *setValues, int numVals) : nValues(numVals) {
-		for (int i = 0; i < numVals; i++) {
-			values[i] = setValues[i];
-		}
-	};
+        for (int i = 0; i < numVals; i++) {
+            values[i] = setValues[i];
+        }
+    };
     CUDA_CALLABLE ~Set() {};
-    
+
     // Determines whether two sets are equivalent
     CUDA_CALLABLE bool operator ==(const Set& otherSet) {
         //  Not the same if the two are different sizes
@@ -97,7 +97,7 @@ public:
         // All values were equal
         return true;
     };
-    
+
     // Subtracts an element from the set
     CUDA_CALLABLE Set operator -(const int& toSub) {
         // Create new array of values for new set
@@ -109,13 +109,13 @@ public:
                 index++;
             }
         }
-        
+
         // Create new set and return it
         Set returnSet = Set(newValues, nValues - 1);
         free(newValues);
         return returnSet;
     };
-    
+
     // Adds an element to the set
     CUDA_CALLABLE Set operator +(const int& toAdd) {
         // Create a new set from the old one, but with the new integer
@@ -124,16 +124,16 @@ public:
             newValues[i] = values[i];
         }
         newValues[nValues] = toAdd;
-        
+
         // Return the new set
         Set returnSet = Set(newValues, nValues + 1);
         free (newValues);
         return returnSet;
     };
-    
+
     // Allows accessing elements of values with just square brackets
     CUDA_CALLABLE int operator [](const int& i) const { return values[i]; };
-    
+
     // Sorts the values
     CUDA_CALLABLE void sort() {
         for (int i = 0; i < nValues; i++) {
@@ -153,11 +153,11 @@ class HeldKarpMemo {
 public:
     // Shortest distance from point 1 to this point
     float dist;
-    
-    // Previous point in shortest path from 1 to this point
-    int prev; 
 
-    
+    // Previous point in shortest path from 1 to this point
+    int prev;
+
+
     //Member functions
     CUDA_CALLABLE HeldKarpMemo() : dist(0.0) {};
     CUDA_CALLABLE ~HeldKarpMemo() {};
@@ -168,18 +168,18 @@ class HeldKarpMemoRow {
 public:
     // Array of actual cells in the row
     HeldKarpMemo row[NUM_POINTS];
-    
-    
+
+
     // Member functions
     CUDA_CALLABLE HeldKarpMemoRow() {};
     CUDA_CALLABLE ~HeldKarpMemoRow() {};
-    
+
     // Updates a value in the row
     CUDA_CALLABLE void updateRow(int col, float dist, int prev) {
         row[col].dist = dist;
         row[col].prev = prev;
     };
-    
+
     // Allows us to call row[] with just the [] array notation
     CUDA_CALLABLE HeldKarpMemo operator [](const int& i) const { return row[i]; };
 };
@@ -203,7 +203,7 @@ void cudaCallGetDistances
      Point2D            *points,
      int                nPoints,
      float              *distances);
-                          
+
 void cudaCallInitializeMemoArray
     (int                nBlocks,
      int                threadsPerBlock,
@@ -211,6 +211,15 @@ void cudaCallInitializeMemoArray
      Point2D            *points,
      int                nPoints,
      float              *distances);
+     
+void cudaCallHeldKarpKernel
+    (int nBlocks,
+     int threadsPerBlock,
+     Set set,
+     HeldKarpMemoArray memoArray,
+     float *distances,
+     int nPoints,
+     HeldKarpMemo *mins);
 
 
 

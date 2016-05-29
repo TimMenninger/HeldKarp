@@ -94,8 +94,8 @@ void checkCUDAKernelError()
 }
 
 
-/* Returns the index of the subset in the memo array. 
- * 
+/* Returns the index of the subset in the memo array.
+ *
  * Parameters:
  *      set - the set of numbers to get an index for; the source point should
  *            be 0
@@ -114,90 +114,90 @@ int getSetIndex(Set set, int size) {
      * a pattern.  Using this, we can find a unique index for any subset in
      * O(log(n)) time.
      */
-     
+
     // Sort the list so we can find its index.
     set.sort();
-    
+
     // We will continually add to the returned index
     int memoIndex = 0;
-    
+
     // Remember the lowest value we havent seen.  We start at 1 because the
     //    smallest subset that makes sense in this problem has two elements.
     //    Thus, every set must have at least one value 1 or greater.
     int lowest = 1;
-    
+
     // This is the index in the set we are currently iterating over.  We start
     //    at 1 because the first element will always be the same (because we
     //    have a fixed first point in the problem)
     int setIndex = 1;
-    
+
     while (1) {
         // Add in values for every subset of this subset we skip over
         for (; lowest < set[setIndex]; lowest++)
             memoIndex += pow(2, size - lowest - 1);
-        
+
         // Increment the lowest value so that we don't double-check it.
         lowest++;
         setIndex++;
-        
+
         // Break if we have seen every index
         if (set.nValues == setIndex)
             return memoIndex;
-            
+
         // Increment the memo index because of a zero case that occurs if the
         //    next iteration is what was guessed.
         memoIndex++;
     }
 }
 
-void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet, 
-	HeldKarpMemoArray memoArray, float** allDistances, int curSize) {
-	
-	/* Return if set length is greater than currant because this is irrelvant
-	 * since the recursive calls only call on sets with length greater
-	 * than the current set */
-	if (set.nValues > curSize) {
-		return;
-	}
-	
-	/* Only updating memoization array for lists of a given size */
-	if (set.nValues == curSize) {
-		
-		/* For all subsets of the set minus one elements */
-		for (int k = 0; k < set.nValues; k++) {
-			if (set[k] ==  0)
-				continue;
-                
+void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
+    HeldKarpMemoArray memoArray, float** allDistances, int curSize) {
+
+    /* Return if set length is greater than currant because this is irrelvant
+     * since the recursive calls only call on sets with length greater
+     * than the current set */
+    if (set.nValues > curSize) {
+        return;
+    }
+
+    /* Only updating memoization array for lists of a given size */
+    if (set.nValues == curSize) {
+
+        /* For all subsets of the set minus one elements */
+        for (int k = 0; k < set.nValues; k++) {
+            if (set[k] ==  0)
+                continue;
+
             float minVal = (unsigned int) -1;
             int minPrev = -1;
-			Set newset = set - set[k];
-			
-			/* Iterate over this new subset */
-			for (int m = 0; m < newset.nValues; m++) {
-				if (newset[m] == 0)
-					continue;
-                    
-				/* Calculate values to update memoization array */ 
-				HeldKarpMemoRow memo = memoArray[getSetIndex(newset, largestPossibleInSet + 1)];
-				if (minVal > memo[newset[m]].dist + allDistances[newset[m]][set[k]]) {
-					minVal = memo[newset[m]].dist + allDistances[newset[m]][set[k]];
+            Set newset = set - set[k];
+
+            /* Iterate over this new subset */
+            for (int m = 0; m < newset.nValues; m++) {
+                if (newset[m] == 0)
+                    continue;
+
+                /* Calculate values to update memoization array */
+                HeldKarpMemoRow memo = memoArray[getSetIndex(newset, largestPossibleInSet + 1)];
+                if (minVal > memo[newset[m]].dist + allDistances[newset[m]][set[k]]) {
+                    minVal = memo[newset[m]].dist + allDistances[newset[m]][set[k]];
                     minPrev = newset[m];
-				}
-			}
-			/* Update memoization array */
-			memoArray[getSetIndex(set, largestPossibleInSet + 1)].updateRow(set[k], minVal, minPrev);
-		}
-	}
-	/* If we have reached largest set size then recursion has finished so break */
-	if (largestInSet == largestPossibleInSet) {	
-		return;
-	}
-	
-	/* Recursive call for all sets with a length of one more than current */
-	for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
-		setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances, curSize);
-	}
-}        
+                }
+            }
+            /* Update memoization array */
+            memoArray[getSetIndex(set, largestPossibleInSet + 1)].updateRow(set[k], minVal, minPrev);
+        }
+    }
+    /* If we have reached largest set size then recursion has finished so break */
+    if (largestInSet == largestPossibleInSet) {
+        return;
+    }
+
+    /* Recursive call for all sets with a length of one more than current */
+    for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
+        setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances, curSize);
+    }
+}
 
 
 
@@ -211,19 +211,19 @@ int main(int argc, char *argv[]) {
     TA_Utilities::select_least_utilized_GPU();
     int max_time_allowed_in_seconds = 3000;
     TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
-    
+
     cudaEvent_t start;
     cudaEvent_t stop;
-    
-    
+
+
     if (argc != 4) {
         fprintf(stderr, "usage: ./HeldKarp <dataPointFile> <threadsPerBlock> <maxBlocks>");
         exit(EXIT_FAILURE);
     }
-    
-    
+
+
     /********************************Read Points******************************/
-    
+
     // Actual code
     ifstream dataFile;
     dataFile.open(argv[1]);
@@ -231,51 +231,51 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Datapoints file missing\n");
         exit(EXIT_FAILURE);
     }
-    
+
     // Place to store name, x value, and y value which will be extracted
     // from the file
     float name;
     float x_val;
     float y_val;
     // Counts how many points are processed
-	int numPoints = 0;
+    int numPoints = 0;
     // Array of all points in list
     Point2D *allPoints = (Point2D *)malloc((NUM_POINTS) * sizeof(Point2D));
-		
-	while(numPoints < NUM_POINTS) {
-		dataFile >> name >> x_val >> y_val;
-		
-		Point2D nextPoint(x_val, y_val);
-		nextPoint.name = name;
-		allPoints[numPoints] = nextPoint;
-		
-		numPoints++;
-	}
+
+    while(numPoints < NUM_POINTS) {
+        dataFile >> name >> x_val >> y_val;
+
+        Point2D nextPoint(x_val, y_val);
+        nextPoint.name = name;
+        allPoints[numPoints] = nextPoint;
+
+        numPoints++;
+    }
     dataFile.close();
-        
-        
-	printf("Values: \n");
-	for (int i = 0; i < numPoints; i++) {
-		printf("Point%d (%.3f, %.3f) \n", i, allPoints[i].x, allPoints[i].y);
-	}
-	printf("\n");
-    
-    
+
+
+    printf("Values: \n");
+    for (int i = 0; i < numPoints; i++) {
+        printf("Point%d (%.3f, %.3f) \n", i, allPoints[i].x, allPoints[i].y);
+    }
+    printf("\n");
+
+
     /****************************CPU Implementation***************************/
-    
+
     float cpu_ms = -1;
     START_TIMER();
-    
+
     /*! Apply Held-Karp algorithm.  For this part, we referred to Wikipedia's
      *     page on Held-Karp to help us learn the algorithm.
      */
-    
+
     // Create a numPoints square array of distances between each other, and
     //     initialize it to zero
     float **allDistances = (float **) malloc(numPoints * sizeof(float *));
     for (int i = 0; i < numPoints; i++) {
         allDistances[i] = (float *) calloc(numPoints, sizeof(float));
-	}
+    }
     // Find the distance between each set of two points.  For this, only find
     //     the upper triangle, and copy to the lower triangle
     for (int i = 0; i < numPoints; i++) {
@@ -286,10 +286,10 @@ int main(int argc, char *argv[]) {
             allDistances[j][i] = allDistances[i][j];
         }
     }
-    
+
     // We are creating a 2D array for our memoization where each column is
     // an endpoint and each row is a subset of all of the points whose
-    // cardinality is greater than 2.  The value at each index [i][j] is 
+    // cardinality is greater than 2.  The value at each index [i][j] is
     // two values: the first is the shortest distance from point 1 to point
     // j through the points in set i and the second is the index of the
     // previous point (before j) that created that shortest distance.
@@ -299,36 +299,36 @@ int main(int argc, char *argv[]) {
     HeldKarpMemoArray memoArray = (HeldKarpMemoArray) malloc(numSubsets * sizeof(HeldKarpMemoRow));
     assert (memoArray != NULL);
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
-	
+
     // Initialize by setting all sets {0, n} to the distance from 1 to n.
     for (int i = 1; i < numPoints; i++) {
         int setIndices[2] = {0, i};
         int index = getSetIndex(Set(setIndices, 2), numPoints);
         memoArray[index].updateRow(i, allDistances[0][i], 0);
     }
-    
+
     // Continue with rest of algorithm.
-	for (int j = 3; j < numPoints + 1; j++) {
-		for (int i = 1; i < numPoints; i++) {
-			int setIndices[2] = {0, i};
-			setOfAllSubsets(Set(setIndices, 2), i, numPoints - 1, memoArray, allDistances, j);
-		}
-	}
-    
-	int fullSetList[numPoints];
-	for (int k = 0; k < numPoints; k++) {
-		fullSetList[k] = k;	
-	}
-	
+    for (int j = 3; j < numPoints + 1; j++) {
+        for (int i = 1; i < numPoints; i++) {
+            int setIndices[2] = {0, i};
+            setOfAllSubsets(Set(setIndices, 2), i, numPoints - 1, memoArray, allDistances, j);
+        }
+    }
+
+    int fullSetList[numPoints];
+    for (int k = 0; k < numPoints; k++) {
+        fullSetList[k] = k;
+    }
+
     // Define some variables that we will use to reconstruct the path
-	Set fullSet = Set(fullSetList, numPoints);
+    Set fullSet = Set(fullSetList, numPoints);
     int fullSetIndex = getSetIndex(fullSet, numPoints);
-	float currdist;
+    float currdist;
     int next = 0;
-	int *path = (int *) malloc(numPoints + 1 * sizeof(int));
-	path[0] = 0; // First point is always the source
-	float distance = (unsigned int) -1;
-    
+    int *path = (int *) malloc(numPoints + 1 * sizeof(int));
+    path[0] = 0; // First point is always the source
+    float distance = (unsigned int) -1;
+
     // Find the last point in the minimum distance path
     for (int j = 1; j < numPoints; j++) {
         currdist = memoArray[fullSetIndex][j].dist;
@@ -340,113 +340,113 @@ int main(int argc, char *argv[]) {
             distance = currdist;
         }
     }
-    
+
     // Follow the trail of prev indices to get the rest of the path
     for (int i = 2; i < numPoints; i++) {
         fullSet = fullSet - path[i - 1];
         next = memoArray[getSetIndex(fullSet, numPoints)][path[i]].prev;
         path[i + 1] = next;
     }
-    
+
     // The distance is the first iteration distance, which counts all points,
     // plus the distance back to the source
     distance += allDistances[0][path[numPoints - 1]];
-	
-	/* Results */
-	printf("Final Path: ");
-	for (int i = 0; i< numPoints + 1; i++) 
-		printf("%d ", path[i]);
-	printf("\nFinal Path Length: %.3f", distance);
-	printf("\n\n");
-	
-     
+
+    /* Results */
+    printf("Final Path: ");
+    for (int i = 0; i< numPoints + 1; i++)
+        printf("%d ", path[i]);
+    printf("\nFinal Path Length: %.3f", distance);
+    printf("\n\n");
+
+
     // Free all allocated memory
     for (int i = 0; i < numPoints; i++) {
          delete allDistances[i];
     }
     delete allDistances;
     delete memoArray;
- 
-    
+
+
     STOP_RECORD_TIMER(cpu_ms);
     printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
 
-    
+
     /****************************GPU Implementation***************************/
-    
+
     float gpu_ms = -1;
     START_TIMER();
-    
-    
+
+
     /*=========================== ALLOCATE MEMORY ============================*/
 
     // Use command line arguments to define how many blocks and threads the GPU
     // will use in its kernel
     const unsigned int threadsPerBlock = atoi(argv[2]);
     const unsigned int maxBlocks = atoi(argv[3]);
-    
+
     // Define the number of blocks and threads per block that the GPU will use.
     // This will differ from kernel to kernel
     unsigned int nBlocks;
-    
+
     // Copy the list of points
     Point2D *dev_allPoints;
     cudaMalloc((void **) &dev_allPoints, numPoints * sizeof(Point2D));
     cudaMemcpy(dev_allPoints, allPoints, numPoints * sizeof(Point2D),
         cudaMemcpyHostToDevice);
-     
+
     // Create space for a list of distances between any two points
     float *dev_allDistances;
     cudaMalloc((void **) &dev_allDistances, numPoints * numPoints * sizeof(float));
-    
+
     // Create space for the memoization array
     HeldKarpMemoArray dev_memoArray;
     cudaMalloc((void **) &dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow));
-    
 
-    
-    
+
+
+
     /*============================ GET DISTANCES ============================*/
-    
+
     // Get distances kernel will run on a square matrix with side numPoints
     nBlocks = min(maxBlocks, (unsigned int) ceil((numPoints * numPoints) / float(threadsPerBlock)));
-                
+
     // Fill in the distances array
     cudaCallGetDistances(nBlocks, threadsPerBlock, dev_allPoints, numPoints, dev_allDistances);
-        
-    checkCUDAKernelError(); 
-   
-    
+
+    checkCUDAKernelError();
+
+
     /*=========================== INIT MEMO ARRAY ===========================*/
 
     // Initializing memo will run once for each point
     nBlocks = min(maxBlocks, (unsigned int) ceil(numPoints / float(threadsPerBlock)));
-    
+
     // Fill in the memo array for al subsets of length 2
     cudaCallInitializeMemoArray(nBlocks, threadsPerBlock, dev_memoArray, dev_allPoints,
         numPoints, dev_allDistances);
-        
-    checkCUDAKernelError(); 
-   
-    
-    /*========================== FIND SHORTEST PATH =========================*/
-    
-    
+
     checkCUDAKernelError();
-   
-    
+
+
+    /*========================== FIND SHORTEST PATH =========================*/
+
+
+    checkCUDAKernelError();
+
+
     /*============================== FREE MEMORY ============================*/
-    
+
     cudaFree(dev_allPoints);
     cudaFree(dev_allDistances);
     cudaFree(dev_memoArray);
-    
+
     STOP_RECORD_TIMER(gpu_ms);
     printf("GPU runtime: %.3f seconds\n", gpu_ms / 1000);
-    printf("GPU took %d%% of the time the CPU did.\n", 
+    printf("GPU took %d%% of the time the CPU did.\n",
             (int) (gpu_ms / cpu_ms * 100));
-    
-    
-    
+
+
+
     return 0;
 }
