@@ -372,6 +372,7 @@ int main(int argc, char *argv[]) {
     printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
 
 
+
     /****************************GPU Implementation***************************/
 
     float gpu_ms = -1;
@@ -388,7 +389,7 @@ int main(int argc, char *argv[]) {
     // Define the number of blocks and threads per block that the GPU will use.
     // This will differ from kernel to kernel
     unsigned int nBlocks;
-
+	
     // Copy the list of points
     Point2D *dev_allPoints;
     cudaMalloc((void **) &dev_allPoints, numPoints * sizeof(Point2D));
@@ -450,3 +451,5 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+
