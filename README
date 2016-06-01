@@ -46,16 +46,16 @@ Decisions)
 
 Challenges)
 One difficult part of this program was figuring out exactly how many subsets there are for a given number
-of points, because the way we wrote our program we needed to know this ahead of time, for when we 
+of points. The way we wrote our program required us to know this ahead of time for when we 
 initialized the memoization array.  (* Tim add how you figured this out *)
 
 Another difficult scenario we ran into was the program was not working for any inputs larger than 27 points.
-For the longest time we could not figure out what was causing this issue, but we just assumed it was 
-due to malloc issues or memory leaks or some kind.  However, eventually we realized the issue was due
+For the longest time we could not figure out what was causing this issue, but and we thought it was 
+due to malloc issues or memory leaks of some kind.  However, eventually we realized the issue was due
 to the memoization array, which was storing all subsets.  The number of subsets is 2^(numPoints - 1),
 and so it doubles in size with every addition point.  Even though this array greatly reduced the time
 complexity of the program, it added a new constraint on the space complexity.  The program was failing
-because the computer did not have enough space to store the array.
+because the computer did not have enough space to store the array for such a large input.
 
 
 
