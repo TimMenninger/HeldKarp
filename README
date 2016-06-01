@@ -1,1 +1,86 @@
+I. File List
+------------
+CS179FinalProjectProposal.docx		Initial Project Proposal
+HeldKarp.cc							HeldKarp Implementation
+HeldKarp.cu							HeldKarp GPU Kernels
+HeldKarp.cuh						HeldKarp Header File
+Makefile							Makefile for HeldKarp
+README								
+ta_utilities.cpp					TA files
+ta_utilities.hpp					TA files
+TestCases							Directory containing test cases
+
+TestCases directory also contains images with the intital data points
+as well as images with the outputted path
+
+
+II. Usage
+---------
+After making, run the following command:
+
+./HeldKarp < "input text file" > < threadsPerBlock > < maxBlocks >
+
+Input data text files are stored in the TestCases directory containing:
+SimpleCase/Simple_Test_Data.txt/	Simple Test containing 6 Points which can be easily verified as correct
+ComplexCase/Complex_Test_Data.txt/ 	Complex Test containing 20 data points
+
+
+
+III. Program Explanation
+-------------------------
+This program contains two implementions of the HeldKarp Algorithm for solving the traveling salesman
+problem.  The first is a CPU implementation, while the second is a much faster GPU implementation. 
+The traveling salesman problem is simply finding the minimum route between a set of points, while ending 
+at the start point.  Although this seems a simple problem, no algorithm has been conceived which 
+reduces the time complexity by any large extent.  The brute force approach has a time complexity
+of O(n!), but the HeldKarp algorithm utilizes a memoization array which breaks the problem down into
+multiple subprobems, and eliminates redundant calculations.  This implementation reduces the complexity
+to only O((n^2)(2^n)).  
+
+In our implementation we have a memoization array class which stores the distance from the initial point
+to the current point as well as the previous point it came from.  The bulk of our algorithm is creating this
+array, and once we have it fully created we simply need to navigate back up the array using the data that 
+is stored in the prev value.  
+
+
+
+IV. Design Decisions & Challenges
+----------------------------------
+Decisions)
+(* Why we used a memoarray class the way we did with prev/whatnot and also the getsetindex*)
+
+Challenges)
+One difficult part of this program was figuring out exactly how many subsets there are for a given number
+of points. The way we wrote our program required us to know this ahead of time for when we 
+initialized the memoization array.  (* Tim add how you figured this out *)
+
+Another difficult scenario we ran into was the program was not working for any inputs larger than 27 points.
+For the longest time we could not figure out what was causing this issue, but and we thought it was 
+due to malloc issues or memory leaks of some kind.  However, eventually we realized the issue was due
+to the memoization array, which was storing all subsets.  The number of subsets is 2^(numPoints - 1),
+and so it doubles in size with every addition point.  Even though this array greatly reduced the time
+complexity of the program, it added a new constraint on the space complexity.  The program was failing
+because the computer did not have enough space to store the array for such a large input.
+
+
+
+V. Expected Results
+--------------------
+We expect both the CPU and GPU implementations to return the correct shortest path from the TSP problem.
+However, we expect the GPU implementation to be much faster since we are using multiple threads to update
+the memoization array.  (* not too sure what they want here *)
+
+
+VI. Analysis of Results
+------------------------
+(* Need GPU working for this *)
+Simple Case:
+CPU Implementation: 00.00s 
+GPU Implementation: 00.00s
+Performance Increase: 00%
+
+Complex Case:
+CPU Implementation: 21.110s 
+GPU Implementation: 00.00s
+Performance Increase: 00%
 
