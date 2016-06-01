@@ -206,7 +206,7 @@ void cudaCallInitializeMemoArray(int nBlocks,
 
 
 
-
+#if 0
 
 
 /**
@@ -239,20 +239,20 @@ void cudaHeldKarpKernel(Set set,
     // will find the minimum of all of these values for each k.  For more info
     // on m and k, refer to HeldKarp.cc  We will treat the mins array as an
     // array with set.nValues rows and set.nValues - 1 columns.
-    while (tid < (set.nValues * (set.nValues - 1)) {
+    while (tid < (set.nValues * (set.nValues - 1))) {
         // Get k and m from the tid
-        k = tid / (set.nValues - 1); // Value subtracting from set
+        k = tid / (set.nValues - 1); // Index of value subtracting from set
         m = tid % (set.nValues - 1); // Value asserting as last in set
         
         // We never want 0 to be last, and last can't also be removed from set
         if (m != k && set[m] != 0) {
             // Remove k from set to look at shortest path ending in m, k
-            Set newSet = set - k;
+            Set newSet = set - set[k];
             
             // Store the distance and prev in mins to get the min later.
-            HeldKarpMemoRow memo = memoArray[getSetIndex(newset, nPoints)];
-            mins[tid].dist = memo.dist + allDistances[newset[m]][set[k]];
-            mins[tid].prev = newset[m];
+            HeldKarpMemoRow memo = memoArray[cudaGetSetIndex(newSet, nPoints)];
+            mins[tid].dist = memo[newSet[m]].dist + distances[newSet[m]][set[k]];
+            mins[tid].prev = newSet[m];
         }
         
         // Advance thread index.
@@ -272,7 +272,7 @@ void cudaCallHeldKarpKernel(int nBlocks,
                             int nPoints,
                             HeldKarpMemo *mins) {
 
-    cudaHeldKarp<<<nBlocks, threadsPerBlock>>> \
+    cudaHeldKarpKernel<<<nBlocks, threadsPerBlock>>> \
         (set, memoArray, distances, nPoints, mins);
 
 }
@@ -293,21 +293,21 @@ void cudaFindMinDistKernel(HeldKarpMemo *cells,
                            int nValues,
                            HeldKarpMemo *minDist) {
     /*! Try to expand to do whole cells array (see held karp kernel) */
-    extern __shared__ HeldKarpMemo sdata[];
+    extern __shared__ HeldKarpMemo sdata;
     int tid = threadIdx.x;
     int i = (blockDim.x * blockIdx.x * 2) + tid;
   
     /* Set the values in shared memory to min values. */
     while (i < nValues) {
-        sdata[tid] = cells[i];
+        (&sdata)[tid] = cells[i];
         // The first loop has a lot of idle threads, so we halve the number
         // of blocks and put two loads on the first iteration to reduce these
         // idle threads.
         __syncthreads();
         
         if (i + blockDim.x < nValues)
-            sdata[tid] = (sdata[tid].dist < cells[i + blockDim.x].dist ? 
-                            sdata[tid] : cells[i + blockDim.x]);
+            (&sdata)[tid] = ((&sdata)[tid].dist < cells[i + blockDim.x].dist ? 
+                            (&sdata)[tid] : cells[i + blockDim.x]);
         
         i += blockDim.x * 2 * gridDim.x;
     }
@@ -318,15 +318,15 @@ void cudaFindMinDistKernel(HeldKarpMemo *cells,
     // strides allow for sequential addressing.
     for (unsigned int s = blockDim.x/2; s > 0; s >>= 1) {
         if ((tid < s) && (tid + s < nValues)) {
-            sdata[tid] = (sdata[tid].dist < sdata[tid + s] ?
-                            sdata[tid] : sdata[tid + s]);
+            (&sdata)[tid] = ((&sdata)[tid].dist < (&sdata)[tid + s].dist ?
+                            (&sdata)[tid] : (&sdata)[tid + s]);
         }
         
         __syncthreads();
     }
 
     if (tid == 0) 
-        *minDist = sdata[0];
+        *minDist = (&sdata)[0];
 }
 
 
@@ -346,3 +346,4 @@ void cudaCallFindMinDistKernel(int nBlocks,
     cudaFindMinDistKernel<<<nBlocks, threadsPerBlock, shmem>>> \
             (cells, nValues, minDist);
 }
+#endif
