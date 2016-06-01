@@ -37,6 +37,11 @@ of O(n!), but the HeldKarp algorithm utilizes a memoization array which breaks t
 multiple subprobems, and eliminates redundant calculations.  This implementation reduces the complexity
 to only O((n^2)(2^n)).  
 
+In our implementation we have a memoization array class which stores the distance from the initial point
+to the current point as well as the previous point it came from.  The bulk of our algorithm is creating this
+array, and once we have it fully created we simply need to navigate back up the array using the data that 
+is stored in the prev value.  
+
 
 
 IV. Design Decisions & Challenges
