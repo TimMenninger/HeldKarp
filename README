@@ -1,14 +1,14 @@
 I. File List
 ------------
 CS179FinalProjectProposal.docx		Initial Project Proposal
-HeldKarp.cc							HeldKarp Implementation
-HeldKarp.cu							HeldKarp GPU Kernels
-HeldKarp.cuh						HeldKarp Header File
-Makefile							Makefile for HeldKarp
+HeldKarp.cc				HeldKarp Implementation
+HeldKarp.cu				HeldKarp GPU Kernels
+HeldKarp.cuh				HeldKarp Header File
+Makefile				Makefile for HeldKarp
 README								
-ta_utilities.cpp					TA files
-ta_utilities.hpp					TA files
-TestCases							Directory containing test cases
+ta_utilities.cpp			TA files
+ta_utilities.hpp			TA files
+TestCases				Directory containing test cases
 
 TestCases directory also contains images with the intital data points
 as well as images with the outputted path
@@ -62,7 +62,14 @@ and so it doubles in size with every addition point.  Even though this array gre
 complexity of the program, it added a new constraint on the space complexity.  The program was failing
 because the computer did not have enough space to store the array for such a large input.
 
-
+Figuring out the proper way to iterate over the subsets was also more difficult than we expected.  It was
+very easy to generate all of the subsets, but the issue was they were not sorted by size, which is what
+we needed, as we need to run our function on all subsets size 1, then 2, and so on until we have the final
+set.  This is necessary because each subset builds off of the ones which are size 1 smaller than they are.
+In the end, rather than sort the list of subsets, we changed our function to take size of subset in as an
+argument.  Then, we looped from 1 to the max size, and called the function every time.  Also, for this 
+approach we needed to change our function to only update the memoization array if the current subset
+was the size of the size argument passed in.  This let us properly iterate over the subsets by size.
 
 V. Expected Results
 --------------------
