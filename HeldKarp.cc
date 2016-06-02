@@ -200,6 +200,56 @@ void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
 }
 
 
+void cudaSetOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
+    HeldKarpMemoArray memoArray, float** allDistances, int curSize, float *dev_allDistances,
+    HeldKarpMemoArray dev_memoArray, int numPoints, int numSubsets, int nBlocks, int threadsPerBlock) {
+
+
+	HeldKarpMemo *mins = (HeldKarpMemo *) malloc(set.nValues * sizeof(HeldKarpMemo)); 
+	HeldKarpMemo* dev_mins;
+	cudaMalloc((void **) &dev_mins, set.nValues * sizeof(HeldKarpMemo));
+	cudaMemset(dev_mins, 0, set.nValues * sizeof(HeldKarpMemo));
+	
+
+    /* Return if set length is greater than currant because this is irrelvant
+     * since the recursive calls only call on sets with length greater
+     * than the current set */
+    if (set.nValues > curSize) {
+        return;
+    }
+
+    /* Only updating memoization array for lists of a given size */
+    if (set.nValues == curSize) {
+		cudaMemcpy(dev_memoArray, memoArray, numSubsets * sizeof(HeldKarpMemoRow),
+				cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_allDistances, allDistances, numPoints * numPoints * sizeof(float),
+				cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_mins, mins, set.nValues * sizeof(HeldKarpMemo),
+				cudaMemcpyHostToDevice);
+				
+        cudaCallHeldKarpKernel(nBlocks, threadsPerBlock, set, dev_memoArray, 
+				dev_allDistances, largestPossibleInSet, dev_mins);
+       
+       
+        cudaMemcpy(memoArray, dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow),
+				cudaMemcpyDeviceToHost);
+		cudaMemcpy(allDistances, dev_allDistances, numPoints * numPoints * sizeof(float),
+				cudaMemcpyDeviceToHost);
+		cudaMemcpy(mins, dev_mins, set.nValues * sizeof(HeldKarpMemo),
+				cudaMemcpyDeviceToHost);
+    }
+    /* If we have reached largest set size then recursion has finished so break */
+    if (largestInSet == largestPossibleInSet) {
+        return;
+    }
+
+    /* Recursive call for all sets with a length of one more than current */
+    for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
+        setOfAllSubsets(set + i, i, largestPossibleInSet, memoArray, allDistances, curSize);
+    }
+}
+
+
 
 /**---------------------------------------------------------------------------+
 |                                                                             |
@@ -429,6 +479,17 @@ int main(int argc, char *argv[]) {
 
     checkCUDAKernelError();
 
+	/*========================== FILL MEMO ARRAY ============================*/
+	
+	for (int j = 3; j < numPoints + 1; j++) {
+		for (int i = 1; i < numPoints; i++) {
+            int setIndices[2] = {0, i};
+            cudaSetOfAllSubsets(Set(setIndices, 2), i, numPoints - 1, memoArray,
+				allDistances, j, dev_allDistances, dev_memoArray, numPoints, numSubsets, nBlocks,
+				threadsPerBlock);
+        }
+    }
+    
 
     /*========================== FIND SHORTEST PATH =========================*/
 
