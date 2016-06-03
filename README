@@ -1,14 +1,28 @@
+/**---------------------------------------------------------------------------+
+|                                                                             |
+| README                                                                      |
+|                                                                             |
+| Description:  This contains information about the HeldKarp cuda project for |
+|               CS 179.  Included is its usage, operation details and analyses|
+|               of what we did.                                               |
+|                                                                             |
+| Authors:      Tim Menninger                                                 |
+|               Jared Reed                                                    |
+|                                                                             |
++----------------------------------------------------------------------------*/
+
+
 I. File List
 ------------
 CS179FinalProjectProposal.docx      Initial Project Proposal
 HeldKarp.cc                         HeldKarp Implementation
-HeldKarp.cu             			HeldKarp GPU Kernels
-HeldKarp.cuh                		HeldKarp Header File
-Makefile                			Makefile for HeldKarp
+HeldKarp.cu                         HeldKarp GPU Kernels
+HeldKarp.cuh                        HeldKarp Header File
+Makefile                            Makefile for HeldKarp
 README                              
-ta_utilities.cpp            		TA files
-ta_utilities.hpp            		TA files
-TestCases               			Directory containing test cases
+ta_utilities.cpp                    TA files
+ta_utilities.hpp                    TA files
+TestCases                           Directory containing test cases
 
 TestCases directory also contains images with the intital data points
 as well as images with the outputted path
@@ -21,61 +35,147 @@ After making, run the following command:
 ./HeldKarp < "input text file" > < threadsPerBlock > < maxBlocks >
 
 Input data text files are stored in the TestCases directory containing:
-SimpleTest/Simple_Test_Data.txt/    Simple Test containing 6 Points which can be easily verified as correct
+SimpleTest/Simple_Test_Data.txt/    Simple Test containing 6 Points which can
+                                    be easily verified as correct
 ComplexTest/Complex_Test_Data.txt/  Complex Test containing 20 data points
 
 
 
 III. Program Explanation
 -------------------------
-This program contains two implementions of the HeldKarp Algorithm for solving the traveling salesman
-problem.  The first is a CPU implementation, while the second is a much faster GPU implementation. 
-The traveling salesman problem is simply finding the minimum route between a set of points, while ending 
-at the start point.  Although this seems a simple problem, no algorithm has been conceived which 
-reduces the time complexity by any large extent.  The brute force approach has a time complexity
-of O(n!), but the HeldKarp algorithm utilizes a memoization array which breaks the problem down into
-multiple subprobems, and eliminates redundant calculations.  This implementation reduces the complexity
-to only O((n^2)(2^n)).  
+This program contains two implementions of the Held-Karp Algorithm for solving
+the traveling salesman problem.  The first is a CPU implementation, while the
+second is a much faster GPU implementation.  The traveling salesman problem
+consists of finding the minimum route between a set of points, while ending at
+the start point.  Although this seems a simple problem, no algorithm has been
+conceived which reduces the time complexity by any large extent.  This is
+because the TSP problem works in a fully connected graph, where every point
+could be connected.  The brute force approach has a time complexity of O(n!),
+but the Held-Karp algorithm utilizes a memoization array that breaks the problem
+down into multiple subprobems, and eliminates redundant calculations.  This
+implementation reduces the complexity to only O((n^2)(2^n)).  
 
-In our implementation we have a memoization array class which stores the distance from the initial point
-to the current point as well as the previous point it came from.  The bulk of our algorithm is creating this
-array, and once we have it fully created we simply need to navigate back up the array using the data that 
-is stored in the prev value.  
+In this algorithm, there is a memoization array.  This array consists of a row
+for every subset of the set of points.  There are 2^n subsets, but because
+the only useful subsets are those of cardinality 2 and greater, this ends
+up being 2^(n - 1) - 1.  Within each row of the array, there is a value for
+each member of the subset.  Thus, the value at index (i, j) would correspond to
+the shortest distance through all points in subset i that ends with point j.
+If j is not in subset i, then the cell is meaningless.  In addition to the
+shortest distance, we also store the second-to-last point (because j is the
+last point).  This allows us to iteratively recreate the path after filling
+the array and examining the full-set row.
 
+Part of creating this memoization array is knowing the distance between each
+set of two points, so the first step is iterating through each n^2 / 2 pairs
+and filling in the distance between them.  Then, we create our base case, which
+involves filling our memoization array at each row that corresponds to a
+subset of length 2.  Finally, we recursively create subsets and fill the
+memoization array in order of increasing subset length.
+
+After the base case, we use the following algorithm to fill the array.  For a
+subset, s, we consider each point, k, as a possible "last point".  Thus, we can
+remove k from s and use our memoization array to find the shortest path through
+all points in s \ {k}.  Our array is structured in such a way that we know the
+shortest path through s \ {k} ending at any point, m, in s \ {k}.  Then, for
+each possible m, we take the distance in the memoization array for s \ {k}
+ending at m, and add the distance from m to k.  This is the shortest distance
+through our points in s ending with {m, k}.  If we take the smallest over all
+possible m, we get the shortest path through all points in s ending at k.
+
+Eventually, when we have filled the array, we can look at the index that
+corresponds to the entire set.  We iterate through each value in that row to
+find the endpoint, k, which had the smallest distance.  We now know the last
+point is k.  This array cell also stores the second-to-last point, j.  This
+knowledge will allow us to find the rest of the path in linear time.  Because
+we know the last point is k, and the second to last point is j, we look at
+the row corresponding to the full set, S, without k (S \ {k}) and look at
+the j'th value in the row, which then stores the next previous value.
+We follow this until the previous value is our starting point (or until the
+size of the subset is 2), at which point we have the entire path.  The final
+step is adding the distance from the last point to the source point, and
+we get our final loop. 
 
 
 IV. Design Decisions & Challenges
 ----------------------------------
-Decisions)
-(* Why we used a memoarray class the way we did with prev/whatnot and also the getsetindex*)
+One challenge we faced was being able to find a unique index into the array
+given a set of numbers.  The final algorithm ended up as a result of a guess-
+and-check system that, after countless hours, ended with the realization
+that one could construct a balanced tree of subsets.  This tree would have
+its root be the smallest possible useful subset: {0, 1}.  Then, each right
+node would increment the largest value in the set by 1, and each left node
+would add to the set the smallest number greater than the largest value
+in the set.  This would happen until no larger value could be added to the
+set.  This then allowed us to be able to find an index of a subset in linear
+time (2^n subsets, log(2^n) levels in this tree).
 
-Challenges)
-One difficult part of this program was figuring out exactly how many subsets there are for a given number
-of points. The way we wrote our program required us to know this ahead of time for when we 
-initialized the memoization array.  (* Tim add how you figured this out *)
+Another difficult scenario we ran into was the program was not working for any
+inputs larger than 27 points.  Originally, we thought we were incorrectly
+reading files.  However, eventually we realized the issue was due to an
+extremely large space complexity of O(2^n) because it stores all subsets in
+the memoization array.  The program was failing because the computer did not
+have enough space to store the array for such a large input.  It then turned
+out that the GPU was even more space-limited, keeping us to only 12 point
+maximums before running out of memory.
 
-Another difficult scenario we ran into was the program was not working for any inputs larger than 27 points.
-For the longest time we could not figure out what was causing this issue, but and we thought it was 
-due to malloc issues or memory leaks of some kind.  However, eventually we realized the issue was due
-to the memoization array, which was storing all subsets.  The number of subsets is 2^(numPoints - 1),
-and so it doubles in size with every addition point.  Even though this array greatly reduced the time
-complexity of the program, it added a new constraint on the space complexity.  The program was failing
-because the computer did not have enough space to store the array for such a large input.
+Figuring out the proper way to iterate over the subsets was also more difficult
+than we expected.  It was very easy to generate all of the subsets, but the
+issue was they were not sorted by size, which is what we needed, as we need to
+run our function on all subsets size 1, then 2, and so on until we have the
+final set.  This is necessary because each subset builds off of the ones
+which are size 1 smaller than they are.  In the end, rather than sort the list
+of subsets, we changed our function to take size of subset in as an argument.
+Then, we looped from 1 to the max size, and called the function every time.
+Also, for this approach we needed to change our function to only update the
+memoization array if the current subset was the size of the size argument
+passed in.  This let us properly iterate over the subsets by size.  We
+considered only keeping memoization rows for the current size and one less
+than the current size, but then we lost the data that allows us to construct
+the full path in the end.  Thus, our only choice was to use the extremely
+space-complex implementation.
 
-Figuring out the proper way to iterate over the subsets was also more difficult than we expected.  It was
-very easy to generate all of the subsets, but the issue was they were not sorted by size, which is what
-we needed, as we need to run our function on all subsets size 1, then 2, and so on until we have the final
-set.  This is necessary because each subset builds off of the ones which are size 1 smaller than they are.
-In the end, rather than sort the list of subsets, we changed our function to take size of subset in as an
-argument.  Then, we looped from 1 to the max size, and called the function every time.  Also, for this 
-approach we needed to change our function to only update the memoization array if the current subset
-was the size of the size argument passed in.  This let us properly iterate over the subsets by size.
+Another challenge was attempting to run a recursive function on the GPU.
+We had never run into this problem in the earlier labs in this class.  We
+decidided the best way to handle this was to have the recursive function run
+inside the CPU, and every call would call a single GPU kernel, rather than
+trying to have the GPU kernel recursivelly call itself.
+
+Inside this GPU kernel, we needed to find the best way to parallelize the
+memoization process.  Originally, it seemed easy; we would designate each
+thread to a subset and fill quickly.  However, there were several issues with
+that.  First, we have no good way of going from thread index to set values.
+Second, the order of the memoization array is not in size-order, so we would
+eventually deadlock waiting for other rows to fill.  Thus, we parallelized
+by enumerating two nested loops and assigning a thread to each pair of
+two values.  We could do this because each iteration in the loop doesn't
+depend on another iteration, but parts of the memoization array that were
+filled in previously.
+
+We eventually realized (too late) that there is a way we could have assigned
+each thread a subset an fill that way.  It would involve first creating a
+2 x 2^n array relating indices to sets.  Then, in our kernel, instead of
+iterating until tid >= |s| * (|s| - 1), we iterate until the entire memoization
+array has been filled.  When we advance the thread past 2^n, we simply loop
+back around.  Then, on each loop, we either (a) have already filled the
+memo for this index; (b) have not filled the memo for this index, but can't
+because we don't have enough information; or (c) have not filled the memo
+but have enough info to fill it, so we go ahead and create that entry.  For
+this, we were unsure whether it would provide a performance improvement because
+of how many iterations it would involve--we thought it might cause significant
+kernel divergence.  It would also add to our already-large space complexity.
+
 
 V. Expected Results
 --------------------
-We expect both the CPU and GPU implementations to return the correct shortest path from the TSP problem.
-However, we expect the GPU implementation to be much faster since we are using multiple threads to update
-the memoization array.  (* not too sure what they want here *)
+We expect both the CPU and GPU implementations to return the correct shortest
+path from the TSP problem. However, we expect the GPU implementation to be much
+faster since we are using multiple threads to update the memoization array.
+Unfortunately, there was some amount of overhead involved in creating and
+copying as much memory as we were.  Thus, on small cases, the CPU works faster
+than the GPU.  As we increase the size of the input, the GPU quickly closes
+the gap.  We run out of space on Mako, though, before we get to an input size
+that allows us to see the GPU's significance.
 
 
 VI. Analysis of Results
@@ -84,7 +184,12 @@ VI. Analysis of Results
 Simple Case:
 CPU Implementation: 00.00s 
 GPU Implementation: 00.00s
-Performance Increase: 00%
+Performance Increase: ??%
+
+There is no indication of performance increase in this simple case due 
+to a lack of accuracy in our numbers.  This computation is simple enough
+that both the CPU and GPU implementation run in ~00.00s, so there is no
+way to quanitify the performance increase.
 
 Complex Case:
 CPU Implementation: 21.110s 
