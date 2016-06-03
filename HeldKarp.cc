@@ -227,7 +227,7 @@ void cudaSetOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
 		cudaMemcpy(dev_mins, mins, set.nValues * sizeof(HeldKarpMemo),
 				cudaMemcpyHostToDevice);
 				
-        cudaCallHeldKarpKernel(nBlocks, threadsPerBlock, set, dev_memoArray, 
+        cudaCallHeldKarpKernel(nBlocks, threadsPerBlock, set, dev_memoArray, \
 				dev_allDistances, largestPossibleInSet, dev_mins);
        
        
