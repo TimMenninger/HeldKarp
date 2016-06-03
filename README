@@ -25,23 +25,24 @@ SimpleTest/Simple_Test_Data.txt/	Simple Test containing 6 Points which can be ea
 ComplexTest/Complex_Test_Data.txt/ 	Complex Test containing 20 data points
 
 
-
 III. Program Explanation
 -------------------------
 This program contains two implementions of the HeldKarp Algorithm for solving the traveling salesman
 problem.  The first is a CPU implementation, while the second is a much faster GPU implementation. 
-The traveling salesman problem is simply finding the minimum route between a set of points, while ending 
+The traveling salesman problem consists of finding the minimum route between a set of points, while ending 
 at the start point.  Although this seems a simple problem, no algorithm has been conceived which 
-reduces the time complexity by any large extent.  The brute force approach has a time complexity
+reduces the time complexity by any large extent.  This is because the TSP problem works in a fully 
+connected graph, where every point could be connected.  The brute force approach has a time complexity
 of O(n!), but the HeldKarp algorithm utilizes a memoization array which breaks the problem down into
 multiple subprobems, and eliminates redundant calculations.  This implementation reduces the complexity
 to only O((n^2)(2^n)).  
 
 In our implementation we have a memoization array class which stores the distance from the initial point
 to the current point as well as the previous point it came from.  The bulk of our algorithm is creating this
-array, and once we have it fully created we simply need to navigate back up the array using the data that 
-is stored in the prev value.  
-
+array.  We do this by initially calling a recursive function on every possible subset of length 2, and then
+each one of these recursively calls the function on the a new set created by adding every possible point to the
+current set.   Once we have fully created the array, we simply need to navigate back up the array using the data 
+which is stored in the prev value.  
 
 
 IV. Design Decisions & Challenges
@@ -71,6 +72,12 @@ argument.  Then, we looped from 1 to the max size, and called the function every
 approach we needed to change our function to only update the memoization array if the current subset
 was the size of the size argument passed in.  This let us properly iterate over the subsets by size.
 
+One last challenge was attempting to run a recursive function on the GPU.  We had never run into this problem
+in the earlier labs in this class.  We decidided the best way to handle this was to have the recursive function
+run inside the GPU, and every call would call a single GPU kernel, rather than trying to have the GPU kernel 
+recursivelly call itself.  
+
+
 V. Expected Results
 --------------------
 We expect both the CPU and GPU implementations to return the correct shortest path from the TSP problem.
@@ -84,7 +91,12 @@ VI. Analysis of Results
 Simple Case:
 CPU Implementation: 00.00s 
 GPU Implementation: 00.00s
-Performance Increase: 00%
+Performance Increase: ??%
+
+There is no indication of performance increase in this simple case due 
+to a lack of accuracy in our numbers.  This computation is simple enough
+that both the CPU and GPU implementation run in ~00.00s, so there is no
+way to quanitify the performance increase.
 
 Complex Case:
 CPU Implementation: 21.110s 

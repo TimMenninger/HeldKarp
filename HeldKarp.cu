@@ -206,7 +206,6 @@ void cudaCallInitializeMemoArray(int nBlocks,
 
 
 
-#if 0
 
 
 /**
@@ -241,6 +240,7 @@ void cudaHeldKarpKernel(Set set,
     // array with set.nValues rows and set.nValues - 1 columns.
     while (tid < (set.nValues * (set.nValues - 1))) {
         // Get k and m from the tid
+        
         k = tid / (set.nValues - 1); // Index of value subtracting from set
         m = tid % (set.nValues - 1); // Value asserting as last in set
         
@@ -251,21 +251,25 @@ void cudaHeldKarpKernel(Set set,
             
             // Store the distance and prev in mins to get the min later.
             HeldKarpMemoRow memo = memoArray[cudaGetSetIndex(newSet, nPoints)];
-            if ((memo[newSet[m]].dist + distances[newSet[m]][set[k]] > mins[k].dist) ||
+            if ((memo[newSet[m]].dist + distances[newSet[m] + set[k]] > mins[k].dist) ||
 						(mins[k].dist == 0)) {
-				mins[k].dist = memo[newSet[m]].dist + distances[newSet[m]][set[k]];
+										
+				mins[k].dist = memo[newSet[m]].dist + distances[newSet[m] + set[k]];
 				mins[k].prev = newSet[m];
 			}
         }
         
         // Advance thread index.
+        
         tid += blockDim.x * gridDim.x;
     }
+    
+    __syncthreads();
     
      for (int k = 0; k < set.nValues; k++) {
 		 memoArray[cudaGetSetIndex(set, nPoints)].updateRow(set[k], mins[k].dist, mins[k].prev);
 	 }
-
+	
 }
 
 
@@ -284,7 +288,7 @@ void cudaCallHeldKarpKernel(int nBlocks,
 
 }
 
-
+# if 0
 
 /**
  * Finds the HeldKarpMemo with the smallest distance attribute.
@@ -353,4 +357,5 @@ void cudaCallFindMinDistKernel(int nBlocks,
     cudaFindMinDistKernel<<<nBlocks, threadsPerBlock, shmem>>> \
             (cells, nValues, minDist);
 }
-#endif
+
+# endif
