@@ -186,11 +186,6 @@ CPU Implementation: 00.00s
 GPU Implementation: 00.00s
 Performance Increase: ??%
 
-There is no indication of performance increase in this simple case due 
-to a lack of accuracy in our numbers.  This computation is simple enough
-that both the CPU and GPU implementation run in ~00.00s, so there is no
-way to quanitify the performance increase.
-
 Complex Case:
 CPU Implementation: 21.110s 
 GPU Implementation: 00.00s

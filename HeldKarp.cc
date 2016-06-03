@@ -434,7 +434,7 @@ int main(int argc, char *argv[]) {
     assert(cudaSuccess == cudaMalloc((void **) &dev_allPoints, 
                 numPoints * sizeof(Point2D)));
     assert(cudaSuccess == cudaMemcpy(dev_allPoints, allPoints, 
-                numPoints * sizeof(Point2D), cudaMemcpyHostToDevice);
+                numPoints * sizeof(Point2D), cudaMemcpyHostToDevice));
 
     // Create space for a list of distances between any two points
     float *dev_allDistances;
@@ -474,8 +474,8 @@ int main(int argc, char *argv[]) {
 
     /*========================== FILL MEMO ARRAY ============================*/
     
-    //cudaMemcpy(dev_memoArray, memoArray, numSubsets * sizeof(HeldKarpMemoRow),
-                //cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_memoArray, memoArray, numSubsets * sizeof(HeldKarpMemoRow),
+                cudaMemcpyHostToDevice);
     cudaMemcpy(dev_allDistances, allDistances, numPoints * numPoints * sizeof(float),
                 cudaMemcpyHostToDevice);
             
@@ -488,8 +488,8 @@ int main(int argc, char *argv[]) {
     }
     
        
-   // cudaMemcpy(memoArray, dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow),
-        //        cudaMemcpyDeviceToHost);
+    cudaMemcpy(memoArray, dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow),
+                cudaMemcpyDeviceToHost);
     cudaMemcpy(allDistances, dev_allDistances, numPoints * numPoints * sizeof(float),
                 cudaMemcpyDeviceToHost);
                 
