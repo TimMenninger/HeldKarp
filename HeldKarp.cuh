@@ -27,7 +27,7 @@
 #else
 #define CUDA_CALLABLE
 #endif // ifdef __CUDACC__
-
+    
 
 // Maximum characters allowed in a name.
 #define NAME_LEN        12

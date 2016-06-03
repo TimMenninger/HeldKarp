@@ -204,9 +204,9 @@ void cudaSetOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
      int curSize, float *dev_allDistances, HeldKarpMemoArray dev_memoArray, 
      HeldKarpMemo *dev_mins, int nBlocks, int threadsPerBlock) {
 
-	cudaMemset(dev_mins, 0, largestPossibleInSet + 1 * sizeof(HeldKarpMemo));
-	
-	
+    cudaMemset(dev_mins, 0, largestPossibleInSet + 1 * sizeof(HeldKarpMemo));
+    
+    
     /* Return if set length is greater than currant because this is irrelvant
      * since the recursive calls only call on sets with length greater
      * than the current set */
@@ -217,9 +217,9 @@ void cudaSetOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
     /* Only updating memoization array for lists of a given size */
    
     if (set.nValues == curSize) {
-		
+        
         //cudaCallHeldKarpKernel(nBlocks, threadsPerBlock, set, dev_memoArray, 
-			//	dev_allDistances, largestPossibleInSet, dev_mins);    		  
+            //    dev_allDistances, largestPossibleInSet, dev_mins);              
 
     }
      
@@ -232,7 +232,7 @@ void cudaSetOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
     /* Recursive call for all sets with a length of one more than current */
     for (int i = largestInSet + 1; i <= largestPossibleInSet; i++) {
         cudaSetOfAllSubsets(set + i, i, largestPossibleInSet, curSize, 
-			dev_allDistances, dev_memoArray, dev_mins, nBlocks, threadsPerBlock);
+            dev_allDistances, dev_memoArray, dev_mins, nBlocks, threadsPerBlock);
     }
     
 }
@@ -428,7 +428,7 @@ int main(int argc, char *argv[]) {
     // Define the number of blocks and threads per block that the GPU will use.
     // This will differ from kernel to kernel
     unsigned int nBlocks;
-	
+    
     // Copy the list of points
     Point2D *dev_allPoints;
     cudaMalloc((void **) &dev_allPoints, numPoints * sizeof(Point2D));
@@ -439,8 +439,8 @@ int main(int argc, char *argv[]) {
     float *dev_allDistances;
     cudaMalloc((void **) &dev_allDistances, numPoints * numPoints * sizeof(float));
 
-	HeldKarpMemo* dev_mins;
-	cudaMalloc((void **) &dev_mins, numPoints * sizeof(HeldKarpMemo));
+    HeldKarpMemo* dev_mins;
+    cudaMalloc((void **) &dev_mins, numPoints * sizeof(HeldKarpMemo));
 
     // Create space for the memoization array
     HeldKarpMemoArray dev_memoArray;
@@ -471,27 +471,27 @@ int main(int argc, char *argv[]) {
 
     checkCUDAKernelError();
 
-	/*========================== FILL MEMO ARRAY ============================*/
-	
-	//cudaMemcpy(dev_memoArray, memoArray, numSubsets * sizeof(HeldKarpMemoRow),
-				//cudaMemcpyHostToDevice);
-	cudaMemcpy(dev_allDistances, allDistances, numPoints * numPoints * sizeof(float),
-				cudaMemcpyHostToDevice);
-			
-	for (int j = 3; j < numPoints + 1; j++) {
-		for (int i = 1; i < numPoints; i++) {
+    /*========================== FILL MEMO ARRAY ============================*/
+    
+    //cudaMemcpy(dev_memoArray, memoArray, numSubsets * sizeof(HeldKarpMemoRow),
+                //cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_allDistances, allDistances, numPoints * numPoints * sizeof(float),
+                cudaMemcpyHostToDevice);
+            
+    for (int j = 3; j < numPoints + 1; j++) {
+        for (int i = 1; i < numPoints; i++) {
             int setIndices[2] = {0, i};
             cudaSetOfAllSubsets(Set(setIndices, 2), i, numPoints - 1,
-				j, dev_allDistances, dev_memoArray, dev_mins, nBlocks, threadsPerBlock);
+                j, dev_allDistances, dev_memoArray, dev_mins, nBlocks, threadsPerBlock);
         }
     }
     
        
    // cudaMemcpy(memoArray, dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow),
-		//		cudaMemcpyDeviceToHost);
-	cudaMemcpy(allDistances, dev_allDistances, numPoints * numPoints * sizeof(float),
-				cudaMemcpyDeviceToHost);
-				
+        //        cudaMemcpyDeviceToHost);
+    cudaMemcpy(allDistances, dev_allDistances, numPoints * numPoints * sizeof(float),
+                cudaMemcpyDeviceToHost);
+                
 
     /*========================== FIND SHORTEST PATH =========================*/
 
@@ -504,8 +504,8 @@ int main(int argc, char *argv[]) {
     cudaFree(dev_allPoints);
     cudaFree(dev_allDistances);
     cudaFree(dev_memoArray);
-	cudaFree(dev_mins);
-	
+    cudaFree(dev_mins);
+    
     STOP_RECORD_TIMER(gpu_ms);
     printf("GPU runtime: %.3f seconds\n", gpu_ms / 1000);
     printf("GPU took %d%% of the time the CPU did.\n",

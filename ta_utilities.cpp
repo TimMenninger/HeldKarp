@@ -57,7 +57,7 @@ namespace TA_Utilities
       if(bytes_read == 0) {
           printf("Error - No Temperature could be read\n");
           return;
-	    }
+        }
       // array to hold GPU temperatures, memory utilizations, and final "score"
       float * temperatures = new float[num_devices]; // Celsius
       float * current_memory_useages = new float[num_devices]; // GB

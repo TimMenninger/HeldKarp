@@ -1,14 +1,14 @@
 I. File List
 ------------
-CS179FinalProjectProposal.docx		Initial Project Proposal
-HeldKarp.cc				HeldKarp Implementation
-HeldKarp.cu				HeldKarp GPU Kernels
-HeldKarp.cuh				HeldKarp Header File
-Makefile				Makefile for HeldKarp
-README								
-ta_utilities.cpp			TA files
-ta_utilities.hpp			TA files
-TestCases				Directory containing test cases
+CS179FinalProjectProposal.docx        Initial Project Proposal
+HeldKarp.cc                HeldKarp Implementation
+HeldKarp.cu                HeldKarp GPU Kernels
+HeldKarp.cuh                HeldKarp Header File
+Makefile                Makefile for HeldKarp
+README                                
+ta_utilities.cpp            TA files
+ta_utilities.hpp            TA files
+TestCases                Directory containing test cases
 
 TestCases directory also contains images with the intital data points
 as well as images with the outputted path
@@ -21,8 +21,8 @@ After making, run the following command:
 ./HeldKarp < "input text file" > < threadsPerBlock > < maxBlocks >
 
 Input data text files are stored in the TestCases directory containing:
-SimpleTest/Simple_Test_Data.txt/	Simple Test containing 6 Points which can be easily verified as correct
-ComplexTest/Complex_Test_Data.txt/ 	Complex Test containing 20 data points
+SimpleTest/Simple_Test_Data.txt/    Simple Test containing 6 Points which can be easily verified as correct
+ComplexTest/Complex_Test_Data.txt/     Complex Test containing 20 data points
 
 
 III. Program Explanation

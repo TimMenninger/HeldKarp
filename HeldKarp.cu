@@ -252,11 +252,11 @@ void cudaHeldKarpKernel(Set set,
             // Store the distance and prev in mins to get the min later.
             HeldKarpMemoRow memo = memoArray[cudaGetSetIndex(newSet, nPoints)];
             if ((memo[newSet[m]].dist + distances[newSet[m] + set[k]] > mins[k].dist) ||
-						(mins[k].dist == 0)) {
-										
-				mins[k].dist = memo[newSet[m]].dist + distances[newSet[m] + set[k]];
-				mins[k].prev = newSet[m];
-			}
+                        (mins[k].dist == 0)) {
+                                        
+                mins[k].dist = memo[newSet[m]].dist + distances[newSet[m] + set[k]];
+                mins[k].prev = newSet[m];
+            }
         }
         
         // Advance thread index.
@@ -267,9 +267,9 @@ void cudaHeldKarpKernel(Set set,
     __syncthreads();
     
      for (int k = 0; k < set.nValues; k++) {
-		 memoArray[cudaGetSetIndex(set, nPoints)].updateRow(set[k], mins[k].dist, mins[k].prev);
-	 }
-	
+         memoArray[cudaGetSetIndex(set, nPoints)].updateRow(set[k], mins[k].dist, mins[k].prev);
+     }
+    
 }
 
 
