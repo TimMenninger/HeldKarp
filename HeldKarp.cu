@@ -231,11 +231,11 @@ void cudaHeldKarpKernel(Set set,
             // Store the distance and prev in mins to get the min later.
             HeldKarpMemoRow memo = memoArray[cudaGetSetIndex(newSet, nPoints)];
             
-           if ((memo[newSet[m]].dist + distances[newSet[m] + set[k]] > mins[k].dist) ||
+            if ((memo[newSet[m]].dist + distances[newSet[m] + set[k]] < mins[k].dist) ||
                         (mins[k].dist == 0)) {
                                         
                 mins[k].dist = memo[newSet[m]].dist + distances[newSet[m] + set[k]];
-               /mins[k].prev = newSet[m];
+                mins[k].prev = newSet[m];
 				
             }
             
@@ -271,74 +271,3 @@ void cudaCallHeldKarpKernel(int nBlocks,
 
 }
 
-# if 0
-
-/**
- * Finds the HeldKarpMemo with the smallest distance attribute.
- * 
- * Parameters:
- *      cells - Array of HeldKarpMemo's for a particular subset.  This has
- *              one memo for each point in the program.
- *      nValues - Number of points.
- *      minDist - Will hold the HeldKarpMemo with the minimum distance.
- */
-__global__
-void cudaFindMinDistKernel(HeldKarpMemo *cells,
-                           int nValues,
-                           HeldKarpMemo *minDist) {
-    /*! Try to expand to do whole cells array (see held karp kernel) */
-    extern __shared__ HeldKarpMemo sdata;
-    int tid = threadIdx.x;
-    int i = (blockDim.x * blockIdx.x * 2) + tid;
-  
-    /* Set the values in shared memory to min values. */
-    while (i < nValues) {
-        (&sdata)[tid] = cells[i];
-        // The first loop has a lot of idle threads, so we halve the number
-        // of blocks and put two loads on the first iteration to reduce these
-        // idle threads.
-        __syncthreads();
-        
-        if (i + blockDim.x < nValues)
-            (&sdata)[tid] = ((&sdata)[tid].dist < cells[i + blockDim.x].dist ? 
-                            (&sdata)[tid] : cells[i + blockDim.x]);
-        
-        i += blockDim.x * 2 * gridDim.x;
-    }
-
-    __syncthreads();
-
-    // Looping this way so we can avoid bank conflicts and so that our
-    // strides allow for sequential addressing.
-    for (unsigned int s = blockDim.x/2; s > 0; s >>= 1) {
-        if ((tid < s) && (tid + s < nValues)) {
-            (&sdata)[tid] = ((&sdata)[tid].dist < (&sdata)[tid + s].dist ?
-                            (&sdata)[tid] : (&sdata)[tid + s]);
-        }
-        
-        __syncthreads();
-    }
-
-    if (tid == 0) 
-        *minDist = (&sdata)[0];
-}
-
-
-
-
-void cudaCallFindMinDistKernel(int nBlocks,
-                               int threadsPerBlock,
-                               HeldKarpMemo *cells,
-                               int nValues,
-                               HeldKarpMemo *minDist) {
-    // Number of bytes of shared memory for kernel call.  Shared memory here
-    // is one row of the memo array, which contains a Memo for each point in
-    // the system.
-    int shmem = nValues * sizeof(HeldKarpMemo);
-    
-    // Find the minimum distance and associated HeldKarpMemo
-    cudaFindMinDistKernel<<<nBlocks, threadsPerBlock, shmem>>> \
-            (cells, nValues, minDist);
-}
-
-# endif

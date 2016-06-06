@@ -372,11 +372,11 @@ int main(int argc, char *argv[]) {
     for (int j = 1; j < numPoints; j++) {
         currdist = memoArray[fullSetIndex][j].dist;
         // Update only if we found a shorter distance
-        if (currdist < distance) {
+        if (currdist + allDistances[j][0] < distance) {
             next = memoArray[fullSetIndex][j].prev;
             path[1] = j;
             path[2] = next;
-            distance = currdist;
+            distance = currdist + allDistances[j][0];
         }
     }
 
@@ -386,16 +386,14 @@ int main(int argc, char *argv[]) {
         next = memoArray[getSetIndex(fullSet, numPoints)][path[i]].prev;
         path[i + 1] = next;
     }
-
-    // The distance is the first iteration distance, which counts all points,
-    // plus the distance back to the source
-    distance += allDistances[0][path[numPoints - 1]];
+    
+    STOP_RECORD_TIMER(cpu_ms);
 
     /* Results */
-    printf("Final Path: ");
+    printf("CPU Final Path: ");
     for (int i = 0; i< numPoints + 1; i++)
         printf("%d ", path[i]);
-    printf("\nFinal Path Length: %.3f", distance);
+    printf("\nCPU Final Path Length: %.3f", distance);
     printf("\n\n");
 
 
@@ -407,11 +405,10 @@ int main(int argc, char *argv[]) {
     delete memoArray;
 
 
-    STOP_RECORD_TIMER(cpu_ms);
-    printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
+    printf("CPU runtime: %.3f seconds\n\n\n", cpu_ms / 1000);
 
 
-
+exit(0);
     /****************************GPU Implementation***************************/
 
     float gpu_ms = -1;
@@ -457,6 +454,10 @@ int main(int argc, char *argv[]) {
 
     // Fill in the distances array
     cudaCallGetDistances(nBlocks, threadsPerBlock, dev_allPoints, numPoints, dev_allDistances);
+    
+    float *host_allDistances = (float *) malloc(numPoints * numPoints * sizeof(float));
+    cudaMemcpy(host_allDistances, dev_allDistances, numPoints * numPoints * sizeof(float), \
+                cudaMemcpyDeviceToHost);
 
     checkCUDAKernelError();
 
@@ -473,12 +474,7 @@ int main(int argc, char *argv[]) {
     checkCUDAKernelError();
 
     /*========================== FILL MEMO ARRAY ============================*/
-    
-    cudaMemcpy(dev_memoArray, memoArray, numSubsets * sizeof(HeldKarpMemoRow),
-                cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_allDistances, allDistances, numPoints * numPoints * sizeof(float),
-                cudaMemcpyHostToDevice);
-            
+                
     for (int j = 3; j < numPoints + 1; j++) {
         for (int i = 1; i < numPoints; i++) {
             int setIndices[2] = {0, i};
@@ -487,20 +483,40 @@ int main(int argc, char *argv[]) {
         }
     }
     
-       
+    memoArray = (HeldKarpMemoArray) malloc(numSubsets * sizeof(HeldKarpMemoRow));
     cudaMemcpy(memoArray, dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow),
                 cudaMemcpyDeviceToHost);
-    cudaMemcpy(allDistances, dev_allDistances, numPoints * numPoints * sizeof(float),
-                cudaMemcpyDeviceToHost);
                 
-
     /*========================== FIND SHORTEST PATH =========================*/
 
 
     checkCUDAKernelError();
+    
+    distance = (unsigned int) -1;
+    // Find the last point in the minimum distance path
+    for (int j = 1; j < numPoints; j++) {
+        currdist = memoArray[fullSetIndex][j].dist;
+        // Update only if we found a shorter distance
+        if (currdist + host_allDistances[j * numPoints + 0] < distance) {
+            next = memoArray[fullSetIndex][j].prev;
+            path[1] = j;
+            path[2] = next;
+            distance = currdist + host_allDistances[j * numPoints + 0];
+        }
+    }
+
+    // Follow the trail of prev indices to get the rest of the path
+    for (int i = 2; i < numPoints; i++) {
+        fullSet = fullSet - path[i - 1];
+        next = memoArray[getSetIndex(fullSet, numPoints)][path[i]].prev;
+        path[i + 1] = next;
+    }
 
 
     /*============================== FREE MEMORY ============================*/
+
+    delete memoArray;
+    delete host_allDistances;
 
     cudaFree(dev_allPoints);
     cudaFree(dev_allDistances);
@@ -508,6 +524,16 @@ int main(int argc, char *argv[]) {
     cudaFree(dev_mins);
     
     STOP_RECORD_TIMER(gpu_ms);
+
+
+    /* Results */
+    printf("GPU Final Path: ");
+    for (int i = 0; i< numPoints + 1; i++)
+        printf("%d ", path[i]);
+    printf("\nGPU Final Path Length: %.3f", distance);
+    printf("\n\n");
+    
+    
     printf("GPU runtime: %.3f seconds\n", gpu_ms / 1000);
     printf("GPU took %d%% of the time the CPU did.\n",
             (int) (gpu_ms / cpu_ms * 100));
