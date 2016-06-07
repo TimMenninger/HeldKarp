@@ -207,6 +207,7 @@ void cudaHeldKarpKernel(Set set,
 
     // Get the index of the thread so we only iterate part of the data.
     unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int firstIteration = 1;
     
     // Variables required.
     int m, k;
@@ -232,14 +233,14 @@ void cudaHeldKarpKernel(Set set,
             HeldKarpMemoRow memo = memoArray[cudaGetSetIndex(newSet, nPoints)];
             
             if ((memo[newSet[m]].dist + distances[newSet[m] + set[k]] < mins[k].dist) ||
-                        (tid == blockIdx.x * blockDim.x + threadIdx.x)) {
+                        firstIteration == 1) {
                 // Second clause would be the first iteration, in which we save
                 // no matter what
                 mins[k].dist = memo[newSet[m]].dist + distances[newSet[m] + set[k]];
                 mins[k].prev = newSet[m];
 				
             }
-            
+            firstIteration = 0;
             
         }
         
