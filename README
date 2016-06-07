@@ -22,6 +22,8 @@ Makefile                            Makefile for HeldKarp
 README                              
 ta_utilities.cpp                    TA files
 ta_utilities.hpp                    TA files
+SimpleTest.txt						Test points with 29 points
+ComplexTest.txt						Test points with 929 points
 TestCases                           Directory containing test cases
 
 TestCases directory also contains images with the intital data points
@@ -199,6 +201,11 @@ Results when run on 10 points
 CPU Implementation: 0.006s 
 GPU Implementation: 0.107s
 Performance Increase: -1877%
+
+Results when run on 22 points
+CPU Implementation: 43.056s
+GPU Implementation:
+Performance Increase:
 
 We ran into memory issues on the CPU when we used more than 27 points, and on
 the GPU when we used more than 11 points.  We assume this is because the
