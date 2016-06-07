@@ -312,8 +312,18 @@ int main(int argc, char *argv[]) {
     // Create a numPoints square array of distances between each other, and
     //     initialize it to zero
     float **allDistances = (float **) malloc(numPoints * sizeof(float *));
+    if (!allDistances) {
+        fprintf(stderr, "Failed to allocate %lu bytes for allDistances.\n",
+            numPoints * sizeof(float *));
+        exit(1);
+    }
     for (int i = 0; i < numPoints; i++) {
         allDistances[i] = (float *) calloc(numPoints, sizeof(float));
+        if (!allDistances[i]) {
+            fprintf(stderr, "Failed to allocate %lu bytes for allDistances[%d].\n",
+                numPoints * sizeof(float), i);
+            exit(1);
+        }
     }
     // Find the distance between each set of two points.  For this, only find
     //     the upper triangle, and copy to the lower triangle
@@ -336,7 +346,11 @@ int main(int argc, char *argv[]) {
     // - 1) - 1
     int numSubsets = pow(2, numPoints - 1) - 1;
     HeldKarpMemoArray memoArray = (HeldKarpMemoArray) malloc(numSubsets * sizeof(HeldKarpMemoRow));
-    assert (memoArray != NULL);
+    if (!memoArray) {
+        fprintf(stderr, "Failed to allocate %lu bytes for memoArray.\n", 
+            numSubsets * sizeof(HeldKarpMemoRow));
+        exit(1);
+    }
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
 
     // Initialize by setting all sets {0, n} to the distance from 1 to n.
@@ -354,8 +368,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    int fullSetList[numPoints];
-    for (int k = 0; k < numPoints; k++) {
+    int fullSetList[NUM_POINTS];
+    for (int k = 0; k < NUM_POINTS; k++) {
         fullSetList[k] = k;
     }
 
@@ -364,7 +378,12 @@ int main(int argc, char *argv[]) {
     int fullSetIndex = getSetIndex(fullSet, numPoints);
     float currdist;
     int next = 0;
-    int *path = (int *) malloc(numPoints + 1 * sizeof(int));
+    int *path = (int *) malloc((numPoints + 1) * sizeof(int));
+    if (!path) {
+        fprintf(stderr, "Failed to allocate %lu bytes for path.\n",
+            (numPoints + 1) * sizeof(int));
+        exit(1);
+    }
     path[0] = 0; // First point is always the source
     float distance = (unsigned int) -1;
 
@@ -391,7 +410,7 @@ int main(int argc, char *argv[]) {
 
     /* Results */
     printf("CPU Final Path: ");
-    for (int i = 0; i< numPoints + 1; i++)
+    for (int i = 0; i < numPoints + 1; i++)
         printf("%d ", path[i]);
     printf("\nCPU Final Path Length: %.3f", distance);
     printf("\n\n");
@@ -399,16 +418,16 @@ int main(int argc, char *argv[]) {
 
     // Free all allocated memory
     for (int i = 0; i < numPoints; i++) {
-         delete allDistances[i];
+         free(allDistances[i]);
     }
-    delete allDistances;
-    delete memoArray;
+    free(allDistances);
+    free(memoArray);
 
 
     printf("CPU runtime: %.3f seconds\n\n\n", cpu_ms / 1000);
 
 
-exit(0);
+
     /****************************GPU Implementation***************************/
 
     float gpu_ms = -1;
@@ -428,22 +447,44 @@ exit(0);
     
     // Copy the list of points
     Point2D *dev_allPoints;
-    assert(cudaSuccess == cudaMalloc((void **) &dev_allPoints, 
-                numPoints * sizeof(Point2D)));
-    assert(cudaSuccess == cudaMemcpy(dev_allPoints, allPoints, 
-                numPoints * sizeof(Point2D), cudaMemcpyHostToDevice));
+    if (cudaSuccess != cudaMalloc((void **) &dev_allPoints, 
+        numPoints * sizeof(Point2D))) {
+            fprintf(stderr, "Failed to allocate %lu bytes for dev_allPoints.\n",
+                numPoints * sizeof(Point2D));
+            exit(1);
+    }
+    if (cudaSuccess != cudaMemcpy(dev_allPoints, allPoints, 
+        numPoints * sizeof(Point2D), cudaMemcpyHostToDevice)) {
+            fprintf(stderr, "Failed to copy %lu bytes from host to dev_allPoints.\n",
+                numPoints * sizeof(Point2D));
+            exit(1);
+    }
 
     // Create space for a list of distances between any two points
     float *dev_allDistances;
-    cudaMalloc((void **) &dev_allDistances, numPoints * numPoints * sizeof(float));
+    if (cudaSuccess != cudaMalloc((void **) &dev_allDistances, 
+        numPoints * numPoints * sizeof(float))) {
+            fprintf(stderr, "Failed to allocate %lu bytes for dev_allDistances.\n",
+                numPoints * numPoints * sizeof(float));
+            exit(1);
+    }
 
     HeldKarpMemo* dev_mins;
-    cudaMalloc((void **) &dev_mins, numPoints * sizeof(HeldKarpMemo));
+    if (cudaSuccess != cudaMalloc((void **) &dev_mins,
+        numPoints * sizeof(HeldKarpMemo))) {
+            fprintf(stderr, "Failed to allocate %lu bytes for dev_mins.\n",
+                numPoints * sizeof(HeldKarpMemo));
+            exit(1);
+    }
 
     // Create space for the memoization array
     HeldKarpMemoArray dev_memoArray;
-    cudaMalloc((void **) &dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow));
-
+    if (cudaSuccess != cudaMalloc((void **) &dev_memoArray, 
+        numSubsets * sizeof(HeldKarpMemoRow))) {
+            fprintf(stderr, "Failed to allocate %lu bytes for dev_memoArray.\n",
+                numSubsets * sizeof(HeldKarpMemoRow));
+            exit(1);
+    }
 
 
 
@@ -456,8 +497,12 @@ exit(0);
     cudaCallGetDistances(nBlocks, threadsPerBlock, dev_allPoints, numPoints, dev_allDistances);
     
     float *host_allDistances = (float *) malloc(numPoints * numPoints * sizeof(float));
-    cudaMemcpy(host_allDistances, dev_allDistances, numPoints * numPoints * sizeof(float), \
-                cudaMemcpyDeviceToHost);
+    if (cudaSuccess != cudaMemcpy(host_allDistances, dev_allDistances,
+        numPoints * numPoints * sizeof(float), cudaMemcpyDeviceToHost)) {
+            fprintf(stderr, "Failed to copy %lu bytes from device to host_allDistances.\n",
+                numPoints * numPoints * sizeof(float));
+            exit(1);
+    }
 
     checkCUDAKernelError();
 
@@ -473,6 +518,7 @@ exit(0);
 
     checkCUDAKernelError();
 
+
     /*========================== FILL MEMO ARRAY ============================*/
                 
     for (int j = 3; j < numPoints + 1; j++) {
@@ -484,9 +530,19 @@ exit(0);
     }
     
     memoArray = (HeldKarpMemoArray) malloc(numSubsets * sizeof(HeldKarpMemoRow));
-    cudaMemcpy(memoArray, dev_memoArray, numSubsets * sizeof(HeldKarpMemoRow),
-                cudaMemcpyDeviceToHost);
-                
+    if (!memoArray) {
+        fprintf(stderr, "Failed to allocate %lu bytes for memoArray.\n",
+            numSubsets * sizeof(HeldKarpMemoRow));
+        exit(1);
+    }
+    if (cudaSuccess != cudaMemcpy(memoArray, dev_memoArray, 
+        numSubsets * sizeof(HeldKarpMemoRow), cudaMemcpyDeviceToHost)) {
+            fprintf(stderr, "Failed to copy %lu bytes from device to memoArray.\n",
+                numSubsets * sizeof(HeldKarpMemoRow));
+            exit(1);
+    }
+
+
     /*========================== FIND SHORTEST PATH =========================*/
 
 
@@ -506,6 +562,7 @@ exit(0);
     }
 
     // Follow the trail of prev indices to get the rest of the path
+    fullSet = Set(fullSetList, numPoints);
     for (int i = 2; i < numPoints; i++) {
         fullSet = fullSet - path[i - 1];
         next = memoArray[getSetIndex(fullSet, numPoints)][path[i]].prev;
@@ -515,23 +572,26 @@ exit(0);
 
     /*============================== FREE MEMORY ============================*/
 
-    delete memoArray;
-    delete host_allDistances;
-
+    free(memoArray);
+    free(host_allDistances);
+    free(allPoints);
+    
     cudaFree(dev_allPoints);
     cudaFree(dev_allDistances);
     cudaFree(dev_memoArray);
     cudaFree(dev_mins);
-    
-    STOP_RECORD_TIMER(gpu_ms);
 
 
     /* Results */
     printf("GPU Final Path: ");
-    for (int i = 0; i< numPoints + 1; i++)
+    for (int i = 0; i < NUM_POINTS + 1; i++)
         printf("%d ", path[i]);
     printf("\nGPU Final Path Length: %.3f", distance);
     printf("\n\n");
+    
+    free(path);
+    
+    STOP_RECORD_TIMER(gpu_ms);
     
     
     printf("GPU runtime: %.3f seconds\n", gpu_ms / 1000);

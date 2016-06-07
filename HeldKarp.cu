@@ -250,7 +250,7 @@ void cudaHeldKarpKernel(Set set,
     __syncthreads();
     
      for (int k = 0; k < set.nValues; k++) {
-        // memoArray[cudaGetSetIndex(set, nPoints)].updateRow(set[k], mins[k].dist, mins[k].prev);
+         memoArray[cudaGetSetIndex(set, nPoints)].updateRow(set[k], mins[k].dist, mins[k].prev);
      }
     
 }
