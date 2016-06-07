@@ -22,8 +22,8 @@ Makefile                            Makefile for HeldKarp
 README                              
 ta_utilities.cpp                    TA files
 ta_utilities.hpp                    TA files
-SimpleTest.txt						Test points with 29 points
-ComplexTest.txt						Test points with 929 points
+SimpleTest.txt						Test points with 6 points
+ComplexTest.txt						Test points with 20 points
 TestCases                           Directory containing test cases
 
 TestCases directory also contains images with the intital data points
@@ -36,11 +36,11 @@ After making, invoke the following command:
     ./HeldKarp < "input text file" > < threadsPerBlock > < maxBlocks >
 
 Input data text files are stored in the TestCases directory containing:
-    SimpleTest.txt    Simple Test containing 29 points
-    ComplexTest.txt   Complex Test containing 929 data points
-Note that this is very space complex and may not run 29 points.  It almost
-certainly will not have enough memory to run 929 points.  To change how
-many points are used in the run, change the NUM_POINTS value in HeldKarp.cuh.
+    SimpleTest.txt    Simple Test containing 6 points
+    ComplexTest.txt   Complex Test containing 20 data points
+Note that this is very space complex and may not run the whole point set. 
+To change how many points are used in the run, change the NUM_POINTS value in
+HeldKarp.cuh.
 
 An example runtime line might look like from the HeldKarp directory:
     ./HeldKarp SimpleTest.txt 512 512

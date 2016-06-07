@@ -249,9 +249,9 @@ void cudaSetOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
 +----------------------------------------------------------------------------*/
 
 int main(int argc, char *argv[]) {
-    TA_Utilities::select_least_utilized_GPU();
+    //TA_Utilities::select_least_utilized_GPU();
     int max_time_allowed_in_seconds = 3000;
-    TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
+    //TA_Utilities::enforce_time_limit(max_time_allowed_in_seconds);
 
     cudaEvent_t start;
     cudaEvent_t stop;
@@ -328,7 +328,7 @@ int main(int argc, char *argv[]) {
     /****************************CPU Implementation***************************/
 
     cpu_ms = -1;
-    START_TIMER();
+    //START_TIMER();
 
     /*! Apply Held-Karp algorithm.  For this part, we referred to Wikipedia's
      *     page on Held-Karp to help us learn the algorithm.
@@ -433,7 +433,7 @@ int main(int argc, char *argv[]) {
         path[i + 1] = next;
     }
     
-    STOP_RECORD_TIMER(cpu_ms);
+    //STOP_RECORD_TIMER(cpu_ms);
 
 	outputFile.open ("out.txt");
 	
@@ -455,7 +455,7 @@ int main(int argc, char *argv[]) {
 	outputFile.close();
 
 
-
+exit(0);
     /****************************GPU Implementation***************************/
 
     gpu_ms = -1;

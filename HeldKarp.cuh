@@ -33,7 +33,7 @@
 #define NAME_LEN        12
 
 // Number of points
-#define NUM_POINTS      10
+#define NUM_POINTS      20
 
 
 
