@@ -216,14 +216,14 @@ void cudaHeldKarpKernel(Set set,
     // will find the minimum of all of these values for each k.  For more info
     // on m and k, refer to HeldKarp.cc  We will treat the mins array as an
     // array with set.nValues rows and set.nValues - 1 columns.
-    while (tid < (set.nValues * (set.nValues - 1))) {
+    while (tid < (set.nValues * set.nValues)) {
         // Get k and m from the tid
         
-        k = tid / (set.nValues - 1); // Index of value subtracting from set
-        m = tid % (set.nValues - 1); // Value asserting as last in set
+        k = tid / set.nValues; // Index of value subtracting from set
+        m = tid % set.nValues; // Value asserting as last in set
         
         // We never want 0 to be last, and last can't also be removed from set
-        if (m != k && set[m] != 0) {
+        if (m != k && set[m] != 0 && set[k] != 0) {
 			
             // Remove k from set to look at shortest path ending in m, k
             Set newSet = set - set[k];
@@ -232,8 +232,9 @@ void cudaHeldKarpKernel(Set set,
             HeldKarpMemoRow memo = memoArray[cudaGetSetIndex(newSet, nPoints)];
             
             if ((memo[newSet[m]].dist + distances[newSet[m] + set[k]] < mins[k].dist) ||
-                        (mins[k].dist == 0)) {
-                                        
+                        (tid == blockIdx.x * blockDim.x + threadIdx.x)) {
+                // Second clause would be the first iteration, in which we save
+                // no matter what
                 mins[k].dist = memo[newSet[m]].dist + distances[newSet[m] + set[k]];
                 mins[k].prev = newSet[m];
 				
@@ -243,7 +244,6 @@ void cudaHeldKarpKernel(Set set,
         }
         
         // Advance thread index.
-        
         tid += blockDim.x * gridDim.x;
     }
     

@@ -30,14 +30,24 @@ as well as images with the outputted path
 
 II. Usage
 ---------
-After making, run the following command:
-
-./HeldKarp < "input text file" > < threadsPerBlock > < maxBlocks >
+After making, invoke the following command:
+    ./HeldKarp < "input text file" > < threadsPerBlock > < maxBlocks >
 
 Input data text files are stored in the TestCases directory containing:
-SimpleTest/Simple_Test_Data.txt/    Simple Test containing 6 Points which can
-                                    be easily verified as correct
-ComplexTest/Complex_Test_Data.txt/  Complex Test containing 20 data points
+    SimpleTest.txt    Simple Test containing 29 points
+    ComplexTest.txt   Complex Test containing 929 data points
+Note that this is very space complex and may not run 29 points.  It almost
+certainly will not have enough memory to run 929 points.  To change how
+many points are used in the run, change the NUM_POINTS value in HeldKarp.cuh.
+
+An example runtime line might look like from the HeldKarp directory:
+    ./HeldKarp SimpleTest.txt 512 512
+    
+After running, the path will be saved into out.txt, which you can then plot
+by running
+    python Plotter.py SimpleTest.txt out.txt
+
+Note that this requires matplotlib.
 
 
 
@@ -94,7 +104,10 @@ the j'th value in the row, which then stores the next previous value.
 We follow this until the previous value is our starting point (or until the
 size of the subset is 2), at which point we have the entire path.  The final
 step is adding the distance from the last point to the source point, and
-we get our final loop. 
+we get our final loop.
+
+For more information, refer to:
+https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm
 
 
 IV. Design Decisions & Challenges
@@ -144,26 +157,13 @@ trying to have the GPU kernel recursivelly call itself.
 Inside this GPU kernel, we needed to find the best way to parallelize the
 memoization process.  Originally, it seemed easy; we would designate each
 thread to a subset and fill quickly.  However, there were several issues with
-that.  First, we have no good way of going from thread index to set values.
+that.  First, we found no good way of going from thread index to set values.
 Second, the order of the memoization array is not in size-order, so we would
 eventually deadlock waiting for other rows to fill.  Thus, we parallelized
 by enumerating two nested loops and assigning a thread to each pair of
 two values.  We could do this because each iteration in the loop doesn't
 depend on another iteration, but parts of the memoization array that were
-filled in previously.
-
-We eventually realized (too late) that there is a way we could have assigned
-each thread a subset an fill that way.  It would involve first creating a
-2 x 2^n array relating indices to sets.  Then, in our kernel, instead of
-iterating until tid >= |s| * (|s| - 1), we iterate until the entire memoization
-array has been filled.  When we advance the thread past 2^n, we simply loop
-back around.  Then, on each loop, we either (a) have already filled the
-memo for this index; (b) have not filled the memo for this index, but can't
-because we don't have enough information; or (c) have not filled the memo
-but have enough info to fill it, so we go ahead and create that entry.  For
-this, we were unsure whether it would provide a performance improvement because
-of how many iterations it would involve--we thought it might cause significant
-kernel divergence.  It would also add to our already-large space complexity.
+filled in previously.  Perhaps, we could have
 
 
 V. Expected Results
@@ -180,14 +180,44 @@ that allows us to see the GPU's significance.
 
 VI. Analysis of Results
 ------------------------
-(* Need GPU working for this *)
-Simple Case:
-CPU Implementation: 00.00s 
-GPU Implementation: 00.00s
-Performance Increase: ??%
+Results when run on 3 points
+CPU Implementation: 0.000s 
+GPU Implementation: 0.001s
+Performance Increase: -11845%
 
-Complex Case:
-CPU Implementation: 21.110s 
-GPU Implementation: 00.00s
-Performance Increase: 00%
+Results when run on 4 points
+CPU Implementation: 0.000s 
+GPU Implementation: 0.001s
+Performance Increase: -5718%
+
+Results when run on 5 points
+CPU Implementation: 0.000s
+GPU Implementation: 0.001s
+Performance Increase: -5015%
+
+Results when run on 10 points
+CPU Implementation: 0.006s 
+GPU Implementation: 0.107s
+Performance Increase: -1877%
+
+We ran into memory issues on the CPU when we used more than 27 points, and on
+the GPU when we used more than 11 points.  We assume this is because the
+algorithm uses O(2^n) space, which grows extremely quickly.  Therefore, we
+could only run on small inputs, and thus were unable to see the GPU improve
+the performance in any significant way.  However, we did notice that there
+is a lot of overhead in the implementation, and the difference went down
+significantly as we added more points.  We searched for what others observed,
+and found that they observed a similarly poor performance on small inputs.
+Additionally, they noted that their biggest limiting factor was space.  For
+more information, refer to:
+http://www.slideshare.net/DimitrisMavrommatis/travelling-salesman-problem-57460886
+
+We wanted to try to improve ours by using streams, but were unable to because
+after approximately every three runs, we would begin seeing an error message
+"GPUassert: out of memory", which wouldn't cease for 30-60 minutes.  As a
+result, we could debug on average about 5 lines per hour.
+
+We also believe that had we found a good way to assign threads to subsets
+instead of to loop iterators within each subset that the GPU speedup would
+have been much greater.
 

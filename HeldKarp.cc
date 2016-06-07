@@ -27,6 +27,7 @@
 #include <iostream>
 #include <sstream>
 #include "HeldKarp.cuh"
+#include <setjmp.h>
 
 using namespace std;
 
@@ -187,6 +188,7 @@ void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
             /* Update memoization array */
             memoArray[getSetIndex(set, largestPossibleInSet + 1)].updateRow(set[k], minVal, minPrev);
         }
+        return;
     }
     /* If we have reached largest set size then recursion has finished so break */
     if (largestInSet == largestPossibleInSet) {
@@ -203,8 +205,6 @@ void setOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
 void cudaSetOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
      int curSize, float *dev_allDistances, HeldKarpMemoArray dev_memoArray, 
      HeldKarpMemo *dev_mins, int nBlocks, int threadsPerBlock) {
-
-    cudaMemset(dev_mins, 0, largestPossibleInSet + 1 * sizeof(HeldKarpMemo));
     
     
     /* Return if set length is greater than currant because this is irrelvant
@@ -219,7 +219,10 @@ void cudaSetOfAllSubsets(Set set, int largestInSet, int largestPossibleInSet,
     if (set.nValues == curSize) {
         
         cudaCallHeldKarpKernel(nBlocks, threadsPerBlock, set, dev_memoArray, 
-                dev_allDistances, largestPossibleInSet, dev_mins);              
+                dev_allDistances, largestPossibleInSet, dev_mins);   
+                
+        checkCUDAKernelError();
+        return;
 
     }
      
@@ -258,6 +261,28 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "usage: ./HeldKarp <dataPointFile> <threadsPerBlock> <maxBlocks>");
         exit(EXIT_FAILURE);
     }
+    
+    // Returned by main.  Set to nonzero if error occurs.
+    int status = 0;
+    
+    // Instantiate what we're using.  Will be checked for NULL before freeing
+    // in the case of an error
+    float               **allDistances      = NULL;
+    Point2D             *allPoints          = NULL;
+    HeldKarpMemoArray   memoArray           = NULL;
+    int                 *path               = NULL;
+    Point2D             *dev_allPoints      = NULL;
+    HeldKarpMemoArray   dev_memoArray       = NULL;
+    float               *host_allDistances  = NULL;
+    HeldKarpMemo        *dev_mins           = NULL;
+    float               *dev_allDistances   = NULL;
+    
+    // Other variables used so we can use goto function
+    float cpu_ms, gpu_ms, distance, currdist;
+    int numSubsets, fullSetList[NUM_POINTS], fullSetIndex, next;
+    Set fullSet;
+    unsigned int threadsPerBlock, maxBlocks, nBlocks;
+    ofstream outputFile;
 
 
     /********************************Read Points******************************/
@@ -279,7 +304,7 @@ int main(int argc, char *argv[]) {
     // Counts how many points are processed
     int numPoints = 0;
     // Array of all points in list
-    Point2D *allPoints = (Point2D *)malloc((NUM_POINTS) * sizeof(Point2D));
+    allPoints = (Point2D *)malloc((NUM_POINTS) * sizeof(Point2D));
 
     while(numPoints < NUM_POINTS) {
         dataFile >> name >> x_val >> y_val;
@@ -302,7 +327,7 @@ int main(int argc, char *argv[]) {
 
     /****************************CPU Implementation***************************/
 
-    float cpu_ms = -1;
+    cpu_ms = -1;
     START_TIMER();
 
     /*! Apply Held-Karp algorithm.  For this part, we referred to Wikipedia's
@@ -311,18 +336,20 @@ int main(int argc, char *argv[]) {
 
     // Create a numPoints square array of distances between each other, and
     //     initialize it to zero
-    float **allDistances = (float **) malloc(numPoints * sizeof(float *));
+    allDistances = (float **) malloc(numPoints * sizeof(float *));
     if (!allDistances) {
         fprintf(stderr, "Failed to allocate %lu bytes for allDistances.\n",
             numPoints * sizeof(float *));
-        exit(1);
+        status = 1;
+        goto free_memory;
     }
     for (int i = 0; i < numPoints; i++) {
         allDistances[i] = (float *) calloc(numPoints, sizeof(float));
         if (!allDistances[i]) {
             fprintf(stderr, "Failed to allocate %lu bytes for allDistances[%d].\n",
                 numPoints * sizeof(float), i);
-            exit(1);
+            status = 1;
+            goto free_memory;
         }
     }
     // Find the distance between each set of two points.  For this, only find
@@ -344,12 +371,13 @@ int main(int argc, char *argv[]) {
     // previous point (before j) that created that shortest distance.
     // The number of distinct subsets with cardinality >= 2 is 2 ^ (numPoints
     // - 1) - 1
-    int numSubsets = pow(2, numPoints - 1) - 1;
-    HeldKarpMemoArray memoArray = (HeldKarpMemoArray) malloc(numSubsets * sizeof(HeldKarpMemoRow));
+    numSubsets = pow(2, numPoints - 1) - 1;
+    memoArray = (HeldKarpMemoArray) malloc(numSubsets * sizeof(HeldKarpMemoRow));
     if (!memoArray) {
         fprintf(stderr, "Failed to allocate %lu bytes for memoArray.\n", 
             numSubsets * sizeof(HeldKarpMemoRow));
-        exit(1);
+        status = 1;
+        goto free_memory;
     }
     memset(memoArray, 0, numSubsets * sizeof(HeldKarpMemoRow));
 
@@ -368,24 +396,23 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    int fullSetList[NUM_POINTS];
     for (int k = 0; k < NUM_POINTS; k++) {
         fullSetList[k] = k;
     }
 
     // Define some variables that we will use to reconstruct the path
-    Set fullSet = Set(fullSetList, numPoints);
-    int fullSetIndex = getSetIndex(fullSet, numPoints);
-    float currdist;
-    int next = 0;
-    int *path = (int *) malloc((numPoints + 1) * sizeof(int));
+    fullSet = Set(fullSetList, numPoints);
+    fullSetIndex = getSetIndex(fullSet, numPoints);
+    next = 0;
+    path = (int *) malloc((numPoints + 1) * sizeof(int));
     if (!path) {
         fprintf(stderr, "Failed to allocate %lu bytes for path.\n",
             (numPoints + 1) * sizeof(int));
-        exit(1);
+        status = 1;
+        goto free_memory;
     }
     path[0] = 0; // First point is always the source
-    float distance = (unsigned int) -1;
+    distance = (unsigned int) -1;
 
     // Find the last point in the minimum distance path
     for (int j = 1; j < numPoints; j++) {
@@ -408,29 +435,30 @@ int main(int argc, char *argv[]) {
     
     STOP_RECORD_TIMER(cpu_ms);
 
+	outputFile.open ("out.txt");
+	
     /* Results */
     printf("CPU Final Path: ");
-    for (int i = 0; i < numPoints + 1; i++)
+    for (int i = 0; i < numPoints; i++) {
         printf("%d ", path[i]);
+		outputFile <<  path[i];
+		outputFile << " ";
+		outputFile <<  path[i + 1];
+		outputFile << "\n";
+	}
+    printf("%d", path[0]);
+
+	
     printf("\nCPU Final Path Length: %.3f", distance);
     printf("\n\n");
 
-
-    // Free all allocated memory
-    for (int i = 0; i < numPoints; i++) {
-         free(allDistances[i]);
-    }
-    free(allDistances);
-    free(memoArray);
-
-
-    printf("CPU runtime: %.3f seconds\n\n\n", cpu_ms / 1000);
+	outputFile.close();
 
 
 
     /****************************GPU Implementation***************************/
 
-    float gpu_ms = -1;
+    gpu_ms = -1;
     START_TIMER();
 
 
@@ -438,52 +466,49 @@ int main(int argc, char *argv[]) {
 
     // Use command line arguments to define how many blocks and threads the GPU
     // will use in its kernel
-    const unsigned int threadsPerBlock = atoi(argv[2]);
-    const unsigned int maxBlocks = atoi(argv[3]);
-
-    // Define the number of blocks and threads per block that the GPU will use.
-    // This will differ from kernel to kernel
-    unsigned int nBlocks;
+    threadsPerBlock = atoi(argv[2]);
+    maxBlocks = atoi(argv[3]);
     
     // Copy the list of points
-    Point2D *dev_allPoints;
     if (cudaSuccess != cudaMalloc((void **) &dev_allPoints, 
         numPoints * sizeof(Point2D))) {
             fprintf(stderr, "Failed to allocate %lu bytes for dev_allPoints.\n",
                 numPoints * sizeof(Point2D));
-            exit(1);
+            status = 1;
+            goto free_memory;
     }
     if (cudaSuccess != cudaMemcpy(dev_allPoints, allPoints, 
         numPoints * sizeof(Point2D), cudaMemcpyHostToDevice)) {
             fprintf(stderr, "Failed to copy %lu bytes from host to dev_allPoints.\n",
                 numPoints * sizeof(Point2D));
-            exit(1);
+            status = 1;
+            goto free_memory;
     }
 
     // Create space for a list of distances between any two points
-    float *dev_allDistances;
     if (cudaSuccess != cudaMalloc((void **) &dev_allDistances, 
         numPoints * numPoints * sizeof(float))) {
             fprintf(stderr, "Failed to allocate %lu bytes for dev_allDistances.\n",
                 numPoints * numPoints * sizeof(float));
-            exit(1);
+            status = 1;
+            goto free_memory;
     }
 
-    HeldKarpMemo* dev_mins;
     if (cudaSuccess != cudaMalloc((void **) &dev_mins,
         numPoints * sizeof(HeldKarpMemo))) {
             fprintf(stderr, "Failed to allocate %lu bytes for dev_mins.\n",
                 numPoints * sizeof(HeldKarpMemo));
-            exit(1);
+            status = 1;
+            goto free_memory;
     }
 
     // Create space for the memoization array
-    HeldKarpMemoArray dev_memoArray;
     if (cudaSuccess != cudaMalloc((void **) &dev_memoArray, 
         numSubsets * sizeof(HeldKarpMemoRow))) {
             fprintf(stderr, "Failed to allocate %lu bytes for dev_memoArray.\n",
                 numSubsets * sizeof(HeldKarpMemoRow));
-            exit(1);
+            status = 1;
+            goto free_memory;
     }
 
 
@@ -496,12 +521,13 @@ int main(int argc, char *argv[]) {
     // Fill in the distances array
     cudaCallGetDistances(nBlocks, threadsPerBlock, dev_allPoints, numPoints, dev_allDistances);
     
-    float *host_allDistances = (float *) malloc(numPoints * numPoints * sizeof(float));
+    host_allDistances = (float *) malloc(numPoints * numPoints * sizeof(float));
     if (cudaSuccess != cudaMemcpy(host_allDistances, dev_allDistances,
         numPoints * numPoints * sizeof(float), cudaMemcpyDeviceToHost)) {
             fprintf(stderr, "Failed to copy %lu bytes from device to host_allDistances.\n",
                 numPoints * numPoints * sizeof(float));
-            exit(1);
+            status = 1;
+            goto free_memory;
     }
 
     checkCUDAKernelError();
@@ -529,17 +555,13 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    memoArray = (HeldKarpMemoArray) malloc(numSubsets * sizeof(HeldKarpMemoRow));
-    if (!memoArray) {
-        fprintf(stderr, "Failed to allocate %lu bytes for memoArray.\n",
-            numSubsets * sizeof(HeldKarpMemoRow));
-        exit(1);
-    }
+    
     if (cudaSuccess != cudaMemcpy(memoArray, dev_memoArray, 
         numSubsets * sizeof(HeldKarpMemoRow), cudaMemcpyDeviceToHost)) {
             fprintf(stderr, "Failed to copy %lu bytes from device to memoArray.\n",
                 numSubsets * sizeof(HeldKarpMemoRow));
-            exit(1);
+            status = 1;
+            goto free_memory;
     }
 
 
@@ -560,26 +582,16 @@ int main(int argc, char *argv[]) {
             distance = currdist + host_allDistances[j * numPoints + 0];
         }
     }
-
+    
     // Follow the trail of prev indices to get the rest of the path
     fullSet = Set(fullSetList, numPoints);
     for (int i = 2; i < numPoints; i++) {
-        fullSet = fullSet - path[i - 1];
+        //fullSet = fullSet - path[i - 1];
         next = memoArray[getSetIndex(fullSet, numPoints)][path[i]].prev;
         path[i + 1] = next;
     }
 
-
     /*============================== FREE MEMORY ============================*/
-
-    free(memoArray);
-    free(host_allDistances);
-    free(allPoints);
-    
-    cudaFree(dev_allPoints);
-    cudaFree(dev_allDistances);
-    cudaFree(dev_memoArray);
-    cudaFree(dev_mins);
 
 
     /* Results */
@@ -589,18 +601,42 @@ int main(int argc, char *argv[]) {
     printf("\nGPU Final Path Length: %.3f", distance);
     printf("\n\n");
     
-    free(path);
     
     STOP_RECORD_TIMER(gpu_ms);
     
-    
+    //printf("\n");
+    printf("CPU runtime: %.3f seconds\n", cpu_ms / 1000);
     printf("GPU runtime: %.3f seconds\n", gpu_ms / 1000);
     printf("GPU took %d%% of the time the CPU did.\n",
             (int) (gpu_ms / cpu_ms * 100));
 
 
+// Puttin a label here so when there is an error, we can jump here and free
+// everything before exiting.
+free_memory:
+    // Free all allocated memory
+    if (allDistances) {
+        for (int i = 0; i < numPoints; i++) {
+             free(allDistances[i]);
+        }
+        free(allDistances);
+    }
+    
+    if (memoArray)          free(memoArray);
+    if (host_allDistances)  free(host_allDistances);
+    if (allPoints)          free(allPoints);
+    if (path)               free(path);
+    
+    if (dev_allPoints)      cudaFree(dev_allPoints);
+    if (dev_allDistances)   cudaFree(dev_allDistances);
+    if (dev_memoArray)      cudaFree(dev_memoArray);
+    if (dev_mins)           cudaFree(dev_mins);
 
-    return 0;
+    printf("Main loop returning with");
+    printf(status == 0 ? " no " : " ");
+    printf("error(s).\n");
+
+    return status;
 }
 
 

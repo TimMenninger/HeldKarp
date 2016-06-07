@@ -82,6 +82,7 @@ public:
             values[i] = setValues[i];
         }
     };
+    CUDA_CALLABLE Set() {};
     CUDA_CALLABLE ~Set() {};
 
     // Determines whether two sets are equivalent
@@ -104,8 +105,10 @@ public:
     CUDA_CALLABLE Set operator -(const int& toSub) {
         // Create new array of values for new set
         int *newValues = (int *) malloc((nValues - 1) * sizeof(int));
+        assert(newValues);
+        
         int index = 0;
-        for (int i = 0; i < nValues; i++) {
+        for (int i = 0; i < nValues && index < nValues; i++) {
             if (toSub != values[i]) {
                 newValues[index] = values[i];
                 index++;

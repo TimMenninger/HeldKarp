@@ -50,7 +50,7 @@ ta_utilities.o: ta_utilities.cpp
 	$(CC) -std=c++11 -O3 $(LDFLAGS) -Wall -I$(CUDA_INC_PATH) -o $@ -c $<
 	
 clean:
-	rm -f *.o $(TARGETS)
+	rm -f *.o $(TARGETS) out.txt
 
 again: clean $(TARGETS)
 
